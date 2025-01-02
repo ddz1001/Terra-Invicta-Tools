@@ -102,6 +102,19 @@ CREATE TABLE `TIArmorSpecialization` (
   FOREIGN KEY (`module_name`) REFERENCES `TIArmor`(`module_name`) ON DELETE CASCADE
 );
 
+CREATE TABLE `TIArmorComposition` (
+    'module_name' TEXT UNIQUE PRIMARY KEY,
+    `water` STRING NOT NULL,
+    `volatiles` STRING NOT NULL,
+    `metals` STRING NOT NULL,
+    `nobleMetals` STRING NOT NULL,
+    `fissiles` STRING NOT NULL,
+    `exotics` STRING NOT NULL,
+    `antimatter` STRING NOT NULL,
+
+    FOREIGN KEY (`module_name`) REFERENCES `TIArmor`(`module_name`) ON DELETE CASCADE
+);
+
 
 CREATE TABLE `TIPowerPlants` (
   `module_name` TEXT UNIQUE PRIMARY KEY,
@@ -129,9 +142,23 @@ CREATE TABLE `TIDrives` (
   `flat_mass` INTEGER NOT NULL,
   `cooling_cycle` TEXT NOT NULL,
   `combat_cap` INTEGER NOT NULL,
-  `needs_helium_3` BOOLEAN NOT NULL,
-  
+
    FOREIGN KEY (`module_name`) REFERENCES `TIShipModules` (`module_name`) ON DELETE CASCADE
+);
+
+CREATE TABLE `TIDrivePropellant` (
+  `module_name` TEXT UNIQUE PRIMARY KEY,
+  `uses_helium3` BOOLEAN NOT NULL,
+  `propellant` TEXT NOT NULL,
+  `water` STRING NOT NULL,
+  `volatiles` STRING NOT NULL,
+  `metals` STRING NOT NULL,
+  `nobleMetals` STRING NOT NULL,
+  `fissiles` STRING NOT NULL,
+  `exotics` STRING NOT NULL,
+  `antimatter` STRING NOT NULL,
+
+   FOREIGN KEY (`module_name`) references `TIDrives` (`module_name`)
 );
 
 CREATE TABLE `TIRadiators` (
@@ -147,6 +174,20 @@ CREATE TABLE `TIRadiators` (
   
   FOREIGN KEY (`module_name`) REFERENCES `TIShipModules` (`module_name`) ON DELETE CASCADE
 );
+
+CREATE TABLE `TIRadiatorComposition` (
+    'module_name' TEXT UNIQUE PRIMARY KEY,
+    `water` STRING NOT NULL,
+    `volatiles` STRING NOT NULL,
+    `metals` STRING NOT NULL,
+    `nobleMetals` STRING NOT NULL,
+    `fissiles` STRING NOT NULL,
+    `exotics` STRING NOT NULL,
+    `antimatter` STRING NOT NULL,
+
+    FOREIGN KEY (`module_name`) REFERENCES `TIRadiators` (`module_name`) ON DELETE CASCADE
+);
+
 
 CREATE TABLE `TIBatteries` (
   `module_name` TEXT UNIQUE PRIMARY KEY,
@@ -318,9 +359,10 @@ CREATE TABLE `TIDatabaseInfo` (
     `entry_value` TEXT
 );
 
-INSERT INTO `TIDatabaseInfo` values('dbversion', '0.1');
-INSERT INTO `TITechEntries` values( 'GameStart', 'Base project for game start', false, 'none', 'none', 'none', 0 );
+INSERT INTO `TIDatabaseInfo` values('db_version', '0.1');
+INSERT INTO `TIDatabaseInfo` values('db_populated', 'false');
+INSERT INTO `TITechEntries` values( 'Base', 'Base project for game start', false, 'none', 'none', 'none', 0 );
 
-
+--UPDATE TIDatabaseInfo set entry_value = 'true' where entry_name = 'db_populated';
 
 
