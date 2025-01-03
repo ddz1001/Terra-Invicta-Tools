@@ -19,7 +19,7 @@ CREATE TABLE `TIPrerequisites` (
   PRIMARY KEY (`internal_name`, `requires`),
   
   FOREIGN KEY (`internal_name`) REFERENCES `TITechEntries` (`internal_name`) ON DELETE CASCADE,
-  FOREIGN KEY (`requires`) REFERENCES `TITechEntries` (`internal_name`) ON DELETE SET NULL
+  FOREIGN KEY (`requires`) REFERENCES `TITechEntries` (`internal_name`) ON DELETE CASCADE
 
 );
 
@@ -61,6 +61,20 @@ CREATE TABLE `TIShipModules` (
   FOREIGN KEY (`required_project`) REFERENCES `TITechEntries` (`internal_name`) ON DELETE CASCADE
 );
 
+CREATE TABLE `TIModuleMaterials` (
+    'module_name' TEXT UNIQUE PRIMARY KEY,
+    `water` STRING NOT NULL,
+    `volatiles` STRING NOT NULL,
+    `metals` STRING NOT NULL,
+    `nobleMetals` STRING NOT NULL,
+    `fissiles` STRING NOT NULL,
+    `exotics` STRING NOT NULL,
+    `antimatter` STRING NOT NULL,
+
+    FOREIGN KEY (`module_name`) REFERENCES `TIShipModules` (`module_name`) ON DELETE CASCADE
+);
+
+
 CREATE TABLE `TIShipHulls` (
   `module_name` TEXT UNIQUE PRIMARY KEY,
   `alien_only` BOOLEAN NOT NULL,
@@ -101,20 +115,6 @@ CREATE TABLE `TIArmorSpecialization` (
   PRIMARY KEY (`module_name`, `specialization`),
   FOREIGN KEY (`module_name`) REFERENCES `TIArmor`(`module_name`) ON DELETE CASCADE
 );
-
-CREATE TABLE `TIArmorComposition` (
-    'module_name' TEXT UNIQUE PRIMARY KEY,
-    `water` STRING NOT NULL,
-    `volatiles` STRING NOT NULL,
-    `metals` STRING NOT NULL,
-    `nobleMetals` STRING NOT NULL,
-    `fissiles` STRING NOT NULL,
-    `exotics` STRING NOT NULL,
-    `antimatter` STRING NOT NULL,
-
-    FOREIGN KEY (`module_name`) REFERENCES `TIArmor`(`module_name`) ON DELETE CASCADE
-);
-
 
 CREATE TABLE `TIPowerPlants` (
   `module_name` TEXT UNIQUE PRIMARY KEY,
@@ -158,7 +158,7 @@ CREATE TABLE `TIDrivePropellant` (
   `exotics` STRING NOT NULL,
   `antimatter` STRING NOT NULL,
 
-   FOREIGN KEY (`module_name`) references `TIDrives` (`module_name`)
+   FOREIGN KEY (`module_name`) references `TIDrives` (`module_name`) ON DELETE CASCADE
 );
 
 CREATE TABLE `TIRadiators` (
@@ -174,20 +174,6 @@ CREATE TABLE `TIRadiators` (
   
   FOREIGN KEY (`module_name`) REFERENCES `TIShipModules` (`module_name`) ON DELETE CASCADE
 );
-
-CREATE TABLE `TIRadiatorComposition` (
-    'module_name' TEXT UNIQUE PRIMARY KEY,
-    `water` STRING NOT NULL,
-    `volatiles` STRING NOT NULL,
-    `metals` STRING NOT NULL,
-    `nobleMetals` STRING NOT NULL,
-    `fissiles` STRING NOT NULL,
-    `exotics` STRING NOT NULL,
-    `antimatter` STRING NOT NULL,
-
-    FOREIGN KEY (`module_name`) REFERENCES `TIRadiators` (`module_name`) ON DELETE CASCADE
-);
-
 
 CREATE TABLE `TIBatteries` (
   `module_name` TEXT UNIQUE PRIMARY KEY,
@@ -361,7 +347,6 @@ CREATE TABLE `TIDatabaseInfo` (
 
 INSERT INTO `TIDatabaseInfo` values('db_version', '0.1');
 INSERT INTO `TIDatabaseInfo` values('db_populated', 'false');
-INSERT INTO `TITechEntries` values( 'Base', 'Base project for game start', false, 'none', 'none', 'none', 0 );
 
 --UPDATE TIDatabaseInfo set entry_value = 'true' where entry_name = 'db_populated';
 

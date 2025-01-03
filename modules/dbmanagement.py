@@ -4,7 +4,7 @@ import sqlite3
 import json
 import sys
 
-class TerraInvictaDatabaseLoader:
+class TerraInvictaDatabaseManager:
     __TECH_ENTRY_STMT = ("INSERT INTO TITechEntries"
                        "( internal_name, friendly_name, ai_critical, tech_type, category, role, cost )"
                        "VALUES"
@@ -111,7 +111,7 @@ class TerraInvictaDatabaseLoader:
                                  ":crew, :radiatorType, :collector)"
                                  ";")
 
-    __SHIP_RADIATOR_COMPOSITION_STMT = ("INSERT INTO TIRadiatorComposition"
+    __SHIP_MODULE_MATERIALS_STMT = ("INSERT INTO TIModuleMaterials"
                                    "(module_name, water, volatiles,"
                                    "metals, nobleMetals, fissiles,"
                                    "exotics, antimatter)"
@@ -257,15 +257,6 @@ class TerraInvictaDatabaseLoader:
                                  "(:_dataName, :_spec, :_value)"
                                  ";")
 
-    __SHIP_ARMOR_COMPOSITION_STMT = ("INSERT INTO TIArmorComposition"
-                                   "(module_name, water, volatiles,"
-                                   "metals, nobleMetals, fissiles,"
-                                   "exotics, antimatter)"
-                                   "VALUES "
-                                   "(:dataName, :water, :volatiles, "
-                                   ":metals, :nobleMetals, :fissiles, "
-                                   ":exotics, :antimatter)"
-                                   ";")
 
     #Our database connection, which is updated on execution
     __database = None
@@ -347,6 +338,9 @@ class TerraInvictaDatabaseLoader:
 
         cursor.execute(self.__SHIP_MODULE_STMT, contents)
 
+        if "weightedBuildMaterials" in contents:
+            self.__insert_module_composition(contents)
+
     def __insert_hull_module(self, json_object):
         cursor = self.__database.cursor()
 
@@ -402,12 +396,6 @@ class TerraInvictaDatabaseLoader:
             "_requiredPower": json_object["req power"], #Pavonis added a space in the key name for some reason, which will break the query
         } )
 
-
-        #
-        #if not "helium3Fuel" in json_object:
-        #    contents["helium3Fuel"] = False#
-        #
-
         contents.update( json_object)
 
         self.__insert_base_module(contents, cursor)
@@ -424,26 +412,7 @@ class TerraInvictaDatabaseLoader:
 
         self.__insert_base_module(contents, cursor)
         cursor.execute(self.__SHIP_RADIATOR_MODULE_STMT, contents)
-        self.__insert_radiator_composition(json_object)
 
-        cursor.close()
-
-    def __insert_radiator_composition(self, json_object):
-
-        contents = {
-            "dataName": json_object["dataName"],
-            "water": "0",
-            "volatiles": "0",
-            "metals": "0",
-            "nobleMetals": "0",
-            "fissiles": "0",
-            "exotics": "0",
-            "antimatter": "0"
-        }
-        contents.update( {key: json_object["weightedBuildMaterials"][key] for key in contents if key in json_object["weightedBuildMaterials"] } )
-
-        cursor = self.__database.cursor()
-        cursor.execute(self.__SHIP_RADIATOR_COMPOSITION_STMT, contents)
         cursor.close()
 
 
@@ -490,6 +459,27 @@ class TerraInvictaDatabaseLoader:
 
         cursor.close()
 
+    def __insert_module_composition(self, json_object):
+        cursor = self.__database.cursor()
+
+        contents = {
+            "dataName": None,
+            "water": "0",
+            "volatiles": "0",
+            "metals": "0",
+            "nobleMetals": "0",
+            "fissiles": "0",
+            "exotics": "0",
+            "antimatter": "0"
+        }
+
+        contents.update( { key: json_object[key] for key in contents if key in json_object } )
+        contents.update({key: json_object["weightedBuildMaterials"][key] for key in contents if (key in json_object["weightedBuildMaterials"] and
+                    json_object["weightedBuildMaterials"][key] is not None)})
+
+        cursor.execute(self.__SHIP_MODULE_MATERIALS_STMT, contents)
+        cursor.close()
+
     def __insert_utility_module_effects(self, json_object):
         cursor = self.__database.cursor()
 
@@ -502,6 +492,7 @@ class TerraInvictaDatabaseLoader:
             cursor.execute(self.__SHIP_UTILITY_EFFECTS_STMT, contents)
 
         cursor.close()
+
 
 
     #Weapons modules
@@ -636,9 +627,6 @@ class TerraInvictaDatabaseLoader:
         self.__insert_base_module(contents, cursor)
         cursor.execute(self.__SHIP_ARMOR_MODULE_STMT, contents)
 
-        #insert build materials
-        self.__insert_armor_composition(json_object)
-
         if "specialties" in json_object:
             self.__insert_armor_specialties(json_object)
 
@@ -655,28 +643,6 @@ class TerraInvictaDatabaseLoader:
             }
             cursor.execute(self.__SHIP_ARMOR_SPECIALTY_STMT, contents)
 
-        cursor.close()
-
-    def __insert_armor_composition(self, json_object):
-        cursor = self.__database.cursor()
-
-        contents = {
-            "dataName": None,
-            "water": "0",
-            "volatiles": "0",
-            "metals": "0",
-            "nobleMetals": "0",
-            "fissiles": "0",
-            "exotics": "0",
-            "antimatter": "0"
-        }
-
-
-        contents.update( { key: json_object[key] for key in contents if key in json_object } )
-        contents.update( {key: json_object["weightedBuildMaterials"][key] for key in contents if key in json_object["weightedBuildMaterials"] } )
-
-
-        cursor.execute(self.__SHIP_ARMOR_COMPOSITION_STMT, contents)
         cursor.close()
 
     #Utility functions
@@ -742,7 +708,9 @@ class TerraInvictaDatabaseLoader:
             else:
                 raise ValueError(f"File {path} does not exist")
 
-    def update_db( self, path_list, database_url ):
+
+
+    def __populate_db(self, database_url, path_list):
         entries = {}
         self.__load_paths(path_list, entries)
 
@@ -765,6 +733,9 @@ class TerraInvictaDatabaseLoader:
 
             self.__database.execute("PRAGMA foreign_keys = ON")
             self.__database.execute("BEGIN TRANSACTION")
+
+            #Insert the default project for modules with no requirements
+            self.__database.execute("INSERT INTO `TITechEntries` values( 'Base', 'Base project for game start', false, 'none', 'none', 'none', 0 );")
 
             #Handle factions, global techs, then project techs, the order is important
             self.__handle_json_contents(entries, "TIFactionTemplate", self.__insert_faction)
@@ -801,7 +772,14 @@ class TerraInvictaDatabaseLoader:
             self.__database.commit()
         except sqlite3.Error as e:
             self.__database.rollback()
-            raise IOError(f"Error while updating database. Transaction rolled back: {e}", e)
+            raise IOError(f"Error while updating database. Transaction rolled back:", e)
+        except KeyError as e:
+            self.__database.rollback()
+            raise KeyError(f"Key not found, transaction rolled back:", e)
+        except:
+            self.__database.rollback()
+            print(f"Unexpected error {sys.exc_info()[0]} , transaction rolled back:")
+            raise
         finally:
             try:
                 self.__database.close()
@@ -816,23 +794,73 @@ class TerraInvictaDatabaseLoader:
                     raise IOError(f"Error while closing database. {e}", e)
 
 
+    def __wipe_db(self, database_url):
 
+        try:
+            self.__database = sqlite3.connect(database_url)
+            self.__database.row_factory = sqlite3.Row
+        except sqlite3.Error as e:
+            raise IOError(f"Error while connecting to database: {e}", e)
 
+        try:
+            cursor = self.__database.cursor()
+
+            cursor.execute(" PRAGMA foreign_keys = ON ")
+            cursor.execute(" BEGIN TRANSACTION")
+
+            #This should just wipe the whole database due to cascading rules
+            cursor.execute( "DELETE FROM TITechEntries;" )
+            cursor.execute( "DELETE FROM TIFactions;" )
+
+            cursor.execute( "UPDATE TIDatabaseInfo SET entry_value = 'false' WHERE entry_name = 'db_populated';" )
+
+            cursor.close()
+
+            self.__database.commit()
+        except sqlite3.Error as e:
+            self.__database.rollback()
+            raise IOError("Error while attempting to wipe database, transaction rolled back:", e)
+        except:
+            self.__database.rollback()
+            print(f"Unexpected error {sys.exc_info()[0]} , transaction rolled back:")
+            raise
+        finally:
+            try:
+                self.__database.close()
+            except sqlite3.Error as e:
+                _eg, exception, _tb = sys.exc_info()
+                if exception is not None:
+                    nex = copy.copy( e )
+                    nex.__cause__ = exception
+
+                    raise IOError(f"Error while closing database:", nex)
+                else:
+                    raise IOError(f"Error while closing database:", e)
+
+    #public interface
+
+    def populate_db(self, database_url, path_list):
+        self.__populate_db(database_url, path_list)
+
+    def wipe_db(self, database_url):
+        self.__wipe_db(database_url)
 
 
 if __name__ == "__main__":
-    dbhandler = TerraInvictaDatabaseLoader()
+    dbhandler = TerraInvictaDatabaseManager()
 
     #delete the database every time
     if os.path.exists("../test_database.db"):
         os.remove("../test_database.db")
 
-    sqlite3.connect("../test_database.db").executescript(open("../tidb.sql", "r").read()).close()
+    script = open("../tidb.sql", "r").read()
 
-    path_list = []
+    sqlite3.connect("../test_database.db").executescript(script).close()
+
+    json_path_list = []
     for root, dirs, files in os.walk("../testfiles"):
         for name in files:
-            path_list.append(os.path.abspath( os.path.join( root, name ) ))
+            json_path_list.append(os.path.abspath( os.path.join( root, name ) ))
 
-    dbhandler.update_db(path_list, "./test_database.db")
+    dbhandler.populate_db( "../test_database.db", json_path_list )
 
