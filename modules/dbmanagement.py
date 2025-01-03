@@ -5,263 +5,286 @@ import json
 import sys
 
 class TerraInvictaDatabaseManager:
-    __TECH_ENTRY_STMT = ("INSERT INTO TITechEntries"
-                       "( internal_name, friendly_name, ai_critical, tech_type, category, role, cost )"
-                       "VALUES"
-                       "( :dataName, :friendlyName, :AI_criticalTech, :_type, :techCategory, :AI_techRole, :researchCost)"
-                       ";")
+    __TECH_ENTRY_STMT = """ 
+        INSERT INTO TITechEntries
+           ( internal_name, friendly_name, ai_critical, tech_type, category, role, cost )
+           VALUES
+           ( :dataName, :friendlyName, :AI_criticalTech, :_type, :techCategory, :AI_techRole, :researchCost);
+    """
 
-    __GLOBAL_TECH_STMT = ("INSERT INTO TIGlobalTechnologies"
-                              "(internal_name, end_game_tech)"
-                              "VALUES"
-                              "(:dataName, :endGameTech)"
-                        ";")
+    __GLOBAL_TECH_STMT = """
+        INSERT INTO TIGlobalTechnologies
+          (internal_name, end_game_tech)
+          VALUES
+          (:dataName, :endGameTech);
+    """
 
-    __PROJECT_TECH_STMT = ("INSERT INTO TIProjects"
-                         "( internal_name, globally_shared, repeatable )"
-                         "VALUES "
-                         "( :dataName, :oneTimeGlobally, :repeatable )"
-                         ";")
+    __PROJECT_TECH_STMT = """
+        INSERT INTO TIProjects
+             ( internal_name, globally_shared, repeatable )
+             VALUES 
+             ( :dataName, :oneTimeGlobally, :repeatable );
+    """
 
-    __TECH_PREREQ_STMT = ("INSERT INTO TIPrerequisites"
-                        "(internal_name, requires)"
-                        "VALUES "
-                        "(:_dataName, :_pr)"
-                        ";")
+    __TECH_PREREQ_STMT = """
+        INSERT INTO TIPrerequisites
+            (internal_name, requires)
+            VALUES 
+            (:_dataName, :_pr);
+    """
 
-    __FACTION_STMT = ("INSERT INTO TIFactions"
-                    "(faction_internal, faction_common)"
-                    "VALUES "
-                    "(:dataName, :friendlyName)"
-                    ";")
+    __FACTION_STMT = """
+        INSERT INTO TIFactions
+            (faction_internal, faction_common)
+            VALUES 
+            (:dataName, :friendlyName);
+    """
 
-    __FACTION_PREREQ_STMT = ("INSERT INTO TIFactionPrerequisites"
-                           "(internal_name, faction)"
-                           "VALUES "
-                           "(:_dataName, :_faction)"
-                           ";")
+    __FACTION_PREREQ_STMT = """
+        INSERT INTO TIFactionPrerequisites
+           (internal_name, faction)
+           VALUES 
+           (:_dataName, :_faction);
+        """
 
-    __SHIP_MODULE_STMT = ("INSERT INTO TIShipModules"
-                        "(module_name, friendly_name, required_project, module_type)"
-                        "VALUES "
-                        "(:dataName, :friendlyName, :requiredProjectName, :_type)"
-                        ";")
+    __SHIP_MODULE_STMT = """
+        INSERT INTO TIShipModules
+            (module_name, friendly_name, required_project, module_type)
+            VALUES 
+            (:dataName, :friendlyName, :requiredProjectName, :_type);
+        """
 
-    __SHIP_HULL_MODULE_STMT = ("INSERT INTO TIShipHulls"
-                             "(module_name, alien_only, construction_tier,"
-                             "construction_time, maximum_officers,"
-                             "starting_crew, mission_control, "
-                             "monthly_cost, base_mass, length,"
-                             "width, volume, structural_integrity,"
-                             "nose_hardpoints, hull_hardpoints,"
-                             "max_modules, thruster_multiplier)"
-                             "VALUES "
-                             "(:dataName, :alien, :consTier, "
-                             ":baseConstructionTime_days, "
-                             ":maxOfficers, :crew, :missionControl,:monthlyIncome_Money,"
-                             ":mass_tons, :length_m, :width_m, :volume,"
-                             ":structuralIntegrity, :noseHardpoints, :hullHardpoints,"
-                             ":internalModules, :thrusterMultiplier)"
-                             ";")
+    __SHIP_HULL_MODULE_STMT = """
+        INSERT INTO TIShipHulls
+             (module_name, alien_only, construction_tier,
+             construction_time, maximum_officers,
+             starting_crew, mission_control, 
+             monthly_cost, base_mass, length,
+             width, volume, structural_integrity,
+             nose_hardpoints, hull_hardpoints,
+             max_modules, thruster_multiplier)
+             VALUES 
+             (:dataName, :alien, :consTier, 
+             :baseConstructionTime_days, 
+             :maxOfficers, :crew, :missionControl,:monthlyIncome_Money,
+             :mass_tons, :length_m, :width_m, :volume,
+             :structuralIntegrity, :noseHardpoints, :hullHardpoints,
+             :internalModules, :thrusterMultiplier);
+        """
 
-    __SHIP_POWER_PLANT_MODULE_STMT = ("INSERT INTO TIPowerPlants"
-                                    "(module_name, plant_class,"
-                                    "max_power, specific_power,"
-                                    "general_use, efficiency,"
-                                    "crew_needed)"
-                                    "VALUES "
-                                    "(:dataName, :powerPlantClass, :maxOutput_GW,"
-                                    ":specificPower_tGW, :generalUse, :efficiency,"
-                                    ":crew)"
-                                    ";")
+    __SHIP_POWER_PLANT_MODULE_STMT = """ 
+        INSERT INTO TIPowerPlants
+            (module_name, plant_class,
+            max_power, specific_power,
+            general_use, efficiency,
+            crew_needed)
+            VALUES 
+            (:dataName, :powerPlantClass, :maxOutput_GW,
+            :specificPower_tGW, :generalUse, :efficiency,
+            :crew);
+        """
 
-    __SHIP_DRIVE_MODULE_STMT = ("INSERT INTO TIDrives"
-                              "(module_name, common_drive_name, thruster_count,"
-                              "drive_class, power_plant_class, thrust,"
-                              "exhaust_velocity, efficiency, power_needed,"
-                              "rating, flat_mass, cooling_cycle, combat_cap)"
-                              "VALUES "
-                              "(:dataName, :_commonDrive, :thrusters, "
-                              ":driveClassification, :requiredPowerPlant,"
-                              ":thrust_N, :EV_kps, :efficiency, :_requiredPower, "
-                              ":thrustRating_GW, :flatMass_tons, :cooling,"
-                              ":thrustCap )"
-                              ";")
+    __SHIP_DRIVE_MODULE_STMT = """
+        INSERT INTO TIDrives
+             (module_name, common_drive_name, thruster_count,
+             drive_class, power_plant_class, thrust,
+             exhaust_velocity, efficiency, power_needed,
+             rating, flat_mass, cooling_cycle, combat_cap)
+             VALUES 
+             (:dataName, :_commonDrive, :thrusters, 
+             :driveClassification, :requiredPowerPlant,
+             :thrust_N, :EV_kps, :efficiency, :_requiredPower, 
+             :thrustRating_GW, :flatMass_tons, :cooling,
+             :thrustCap );
+        """
 
-    __SHIP_DRIVE_PROPELLANT_STMT = ("INSERT INTO TIDrivePropellant"
-                                  "(module_name, uses_helium3, propellant,"
-                                  "water, volatiles, metals, nobleMetals,"
-                                  "fissiles, exotics, antimatter)"
-                                  "VALUES "
-                                  "(:dataName, :helium3Fuel, :propellant,"
-                                  ":water, :volatiles, :metals, :nobleMetals, "
-                                  ":fissiles, :exotics, :antimatter)"
-                                  ";")
+    __SHIP_DRIVE_PROPELLANT_STMT = """
+        INSERT INTO TIDrivePropellant
+              (module_name, uses_helium3, propellant,
+              water, volatiles, metals, nobleMetals,
+              fissiles, exotics, antimatter)
+              VALUES 
+              (:dataName, :helium3Fuel, :propellant,
+              :water, :volatiles, :metals, :nobleMetals, 
+              :fissiles, :exotics, :antimatter);
+        """
 
-    __SHIP_RADIATOR_MODULE_STMT = ("INSERT INTO TIRadiators"
-                                 "(module_name, specific_mass,"
-                                 "specific_power, operating_temperature,"
-                                 "emissivity, vulnerability, crew_needed,"
-                                 "radiator_type, collector)"
-                                 "VALUES "
-                                 "(:dataName, :specificMass_2s_kgm2,"
-                                 ":specificPower_2s_KWkg, "
-                                 ":operatingTemp_K,"
-                                 ":emissivity, :vulnerability,"
-                                 ":crew, :radiatorType, :collector)"
-                                 ";")
+    __SHIP_RADIATOR_MODULE_STMT = """ 
+        INSERT INTO TIRadiators
+             (module_name, specific_mass,
+             specific_power, operating_temperature,
+             emissivity, vulnerability, crew_needed,
+             radiator_type, collector)
+             VALUES 
+             (:dataName, :specificMass_2s_kgm2,
+             :specificPower_2s_KWkg, 
+             :operatingTemp_K,
+             :emissivity, :vulnerability,
+             :crew, :radiatorType, :collector);
+            """
 
-    __SHIP_MODULE_MATERIALS_STMT = ("INSERT INTO TIModuleMaterials"
-                                   "(module_name, water, volatiles,"
-                                   "metals, nobleMetals, fissiles,"
-                                   "exotics, antimatter)"
-                                   "VALUES "
-                                   "(:dataName, :water, :volatiles, "
-                                   ":metals, :nobleMetals, :fissiles, "
-                                   ":exotics, :antimatter)"
-                                   ";")
+    __SHIP_MODULE_MATERIALS_STMT = """
+        INSERT INTO TIModuleMaterials
+           (module_name, water, volatiles,
+           metals, nobleMetals, fissiles,
+           exotics, antimatter)
+           VALUES 
+           (:dataName, :water, :volatiles, 
+           :metals, :nobleMetals, :fissiles, 
+           :exotics, :antimatter);
+        """
 
-    __SHIP_BATTERY_MODULE_STMT = ("INSERT INTO TIBatteries"
-                                "(module_name, capacity,"
-                                "recharge_rate, mass,"
-                                "crew_needed, hit_points)"
-                                "VALUES "
-                                "(:dataName, :energyCapacity_GJ,"
-                                ":rechargeRate_GJs, :mass_tons,"
-                                ":crew, :hp)"
-                                ";")
+    __SHIP_BATTERY_MODULE_STMT = """ 
+        INSERT INTO TIBatteries
+            (module_name, capacity,
+            recharge_rate, mass,
+            crew_needed, hit_points)
+            VALUES 
+            (:dataName, :energyCapacity_GJ,
+            :rechargeRate_GJs, :mass_tons,
+            :crew, :hp);
+        """
 
-    __SHIP_HEAT_SINK_MODULE_STMT = ("INSERT INTO TIHeatSinks"
-                               "(module_name, capacity, mass, crew_needed)"
-                               "VALUES "
-                               "(:dataName, :heatCapacity_GJ, :mass_tons, :crew)"
-                               ";")
+    __SHIP_HEAT_SINK_MODULE_STMT = """
+        INSERT INTO TIHeatSinks
+           (module_name, capacity, mass, crew_needed)
+           VALUES 
+           (:dataName, :heatCapacity_GJ, :mass_tons, :crew);
+        """
 
-    __SHIP_UTILITY_MODULE_STMT = ("INSERT INTO TIUtilities"
-                                "(module_name, no_combat_repair, power_requirement)"
-                                "VALUES "
-                                "(:dataName, :noCombatRepair, :powerRequirement_MW )"
-                                ";")
+    __SHIP_UTILITY_MODULE_STMT = """
+        INSERT INTO TIUtilities
+            (module_name, no_combat_repair, power_requirement)
+            VALUES 
+            (:dataName, :noCombatRepair, :powerRequirement_MW );
+        """
 
-    __SHIP_UTILITY_EFFECTS_STMT = ("INSERT INTO TIUtilityEffects"
-                                 "(module_name, rule)"
-                                 "VALUES "
-                                 "(:_dataName, :_rule)"
-                                 ";")
+    __SHIP_UTILITY_EFFECTS_STMT = """
+        INSERT INTO TIUtilityEffects
+             (module_name, rule)
+             VALUES 
+             (:_dataName, :_rule);
+             """
 
-    __SHIP_WEAPON_MODULE_STMT = ("INSERT INTO TIWeapons"
-                               "(module_name, module_mass, mount_type,"
-                               "can_attack, can_defend, crew_needed)"
-                               "VALUES "
-                               "(:dataName, :baseWeaponMass_tons, "
-                               ":mount, :attackMode, :defenseMode,"
-                               ":crew)"
-                               ";")
+    __SHIP_WEAPON_MODULE_STMT = """
+        INSERT INTO TIWeapons
+           (module_name, module_mass, mount_type,
+           can_attack, can_defend, crew_needed)
+           VALUES 
+           (:dataName, :baseWeaponMass_tons, 
+           :mount, :attackMode, :defenseMode,
+           :crew);
+        """
 
-    __SHIP_MISSILE_WEAPON_STMT = ("INSERT INTO TIMissiles"
-                                "(module_name, thrust, warhead_class,"
-                                "exhaust_velocity, acceleration, delta_v,"
-                                "magazine, flat_damage, bombardment_value,"
-                                "chipping, targetable, range, cone_angle,"
-                                "ammo_mass, fuel_mass, system_mass, warhead_mass,"
-                                "thrust_ramp, turn_ramp, maneuver_angle,"
-                                "rotation, pivot_range)"
-                                "VALUES "
-                                "(:dataName, :_thrust, :warheadClass, "
-                                ":EV_kps, :acceleration_g, :deltaV_kps, "
-                                ":magazine, :flatDamage_MJ, :bombardmentValue,"
-                                ":flatChipping, :isPointDefenseTargetable,"
-                                ":targetingRange_km, :shapedChargeAngle, "
-                                ":ammoMass_kg, :fuelMass_kg, :systemMass_kg,"
-                                ":warheadMass_kg, :thrustRamp_s, :turnRamp_s,"
-                                ":maneuver_angle, :rotation_degps, :pivotRange_deg)"
-                                ";")
+    __SHIP_MISSILE_WEAPON_STMT = """
+        INSERT INTO TIMissiles
+            (module_name, thrust, warhead_class,
+            exhaust_velocity, acceleration, delta_v,
+            magazine, flat_damage, bombardment_value,
+            chipping, targetable, range, cone_angle,
+            ammo_mass, fuel_mass, system_mass, warhead_mass,
+            thrust_ramp, turn_ramp, maneuver_angle,
+            rotation, pivot_range)
+            VALUES 
+            (:dataName, :_thrust, :warheadClass, 
+            :EV_kps, :acceleration_g, :deltaV_kps, 
+            :magazine, :flatDamage_MJ, :bombardmentValue,
+            :flatChipping, :isPointDefenseTargetable,
+            :targetingRange_km, :shapedChargeAngle, 
+            :ammoMass_kg, :fuelMass_kg, :systemMass_kg,
+            :warheadMass_kg, :thrustRamp_s, :turnRamp_s,
+            :maneuver_angle, :rotation_degps, :pivotRange_deg);
+    """
 
-    __SHIP_LASER_WEAPON_STMT = ("INSERT INTO TILasers"
-                              "(module_name, wavelength, mirror_radius,"
-                              "beam_quality, jitter_radius, shot_power,"
-                              "efficiency, cooldown, bombardment_value,"
-                              "range, pivot, hit_points)"
-                              "VALUES "
-                              "(:dataName, :wavelength_nm, :mirrorRadius_cm,"
-                              ":beam_quality, :jitter_Rad, :shotPower_MJ,"
-                              ":efficiency, :cooldown_s, :bombardmentValue,"
-                              ":targetingRange_km, :pivotRange_deg, :hp)"
-                              ";")
+    __SHIP_LASER_WEAPON_STMT = """ 
+        INSERT INTO TILasers
+          (module_name, wavelength, mirror_radius,
+          beam_quality, jitter_radius, shot_power,
+          efficiency, cooldown, bombardment_value,
+          range, pivot, hit_points)
+          VALUES 
+          (:dataName, :wavelength_nm, :mirrorRadius_cm,
+          :beam_quality, :jitter_Rad, :shotPower_MJ,
+          :efficiency, :cooldown_s, :bombardmentValue,
+          :targetingRange_km, :pivotRange_deg, :hp);
+        """
 
-    __SHIP_MAGNETIC_GUN_WEAPON_STMT = ("INSERT INTO TIMagneticGuns"
-                                     "(module_name, magazine, muzzle_velocity,"
-                                     "efficiency, chipping, ammo_mass, warhead_mass,"
-                                     "targetable, bombardment_value, range, pivot, "
-                                     "cooldown, salvo_count, salvo_cooldown)"
-                                     "VALUES "
-                                     "(:dataName, :magazine, :muzzleVelocity_kps, "
-                                     ":efficiency, :flatChipping, :ammoMass_kg, "
-                                     ":warheadMass_kg, :isPointDefenseTargetable,"
-                                     ":bombardmentValue, :targetingRange_km, :pivotRange_deg, "
-                                     ":cooldown_s, :salvo_shots, :intraSalvoCooldown_s)"
-                                     ";")
+    __SHIP_MAGNETIC_GUN_WEAPON_STMT = """
+        INSERT INTO TIMagneticGuns
+             (module_name, magazine, muzzle_velocity,
+             efficiency, chipping, ammo_mass, warhead_mass,
+             targetable, bombardment_value, range, pivot, 
+             cooldown, salvo_count, salvo_cooldown)
+             VALUES 
+             (:dataName, :magazine, :muzzleVelocity_kps, 
+             :efficiency, :flatChipping, :ammoMass_kg, 
+             :warheadMass_kg, :isPointDefenseTargetable,
+             :bombardmentValue, :targetingRange_km, :pivotRange_deg, 
+             :cooldown_s, :salvo_shots, :intraSalvoCooldown_s);
+        """
 
-    __SHIP_CONVENTIONAL_GUN_WEAPON_STMT = ("INSERT INTO TIConventionalGuns"
-                                     "(module_name, magazine, muzzle_velocity,"
-                                     "efficiency, chipping, ammo_mass, warhead_mass,"
-                                     "targetable, bombardment_value, range, pivot, "
-                                     "cooldown, salvo_count, salvo_cooldown)"
-                                     "VALUES "
-                                     "(:dataName, :magazine, :muzzleVelocity_kps, "
-                                     ":efficiency, :flatChipping, :ammoMass_kg, "
-                                     ":warheadMass_kg, :isPointDefenseTargetable,"
-                                     ":bombardmentValue,:targetingRange_km, :pivotRange_deg, "
-                                     ":cooldown_s, :salvo_shots, :intraSalvoCooldown_s)"
-                                     ";")
+    __SHIP_CONVENTIONAL_GUN_WEAPON_STMT = """
+        INSERT INTO TIConventionalGuns
+             (module_name, magazine, muzzle_velocity,
+             efficiency, chipping, ammo_mass, warhead_mass,
+             targetable, bombardment_value, range, pivot, 
+             cooldown, salvo_count, salvo_cooldown)
+             VALUES 
+             (:dataName, :magazine, :muzzleVelocity_kps, 
+             :efficiency, :flatChipping, :ammoMass_kg, 
+             :warheadMass_kg, :isPointDefenseTargetable,
+             :bombardmentValue,:targetingRange_km, :pivotRange_deg, 
+             :cooldown_s, :salvo_shots, :intraSalvoCooldown_s);
+        """
 
-    __SHIP_PLASMA_WEAPON_STMT = ("INSERT INTO TIPlasmaWeapons"
-                               "(module_name, magazine, charging_energy,"
-                               "muzzle_velocity, warhead_mass, efficiency,"
-                               "chipping, cooldown, bombardment_value, targetable,"
-                               "range, pivot)"
-                               "VALUES "
-                               "(:dataName, :magazine, :chargingEnergy_MJ,"
-                               ":muzzleVelocity_kps, :warheadMass_kg, :efficiency, "
-                               ":flatChipping, :cooldown_s, :bombardmentValue, "
-                               ":isPointDefenseTargetable, :targetingRange_km,  "
-                               ":pivotRange_deg)"
-                               ";")
+    __SHIP_PLASMA_WEAPON_STMT = """ 
+        INSERT INTO TIPlasmaWeapons
+           (module_name, magazine, charging_energy,
+           muzzle_velocity, warhead_mass, efficiency,
+           chipping, cooldown, bombardment_value, targetable,
+           range, pivot)
+           VALUES 
+           (:dataName, :magazine, :chargingEnergy_MJ,
+           :muzzleVelocity_kps, :warheadMass_kg, :efficiency, 
+           :flatChipping, :cooldown_s, :bombardmentValue, 
+           :isPointDefenseTargetable, :targetingRange_km,  
+           :pivotRange_deg);
+        """
 
-    __SHIP_PARTICLE_WEAPON_STMT = ("INSERT INTO TIParticleWeapons"
-                                 "(module_name, shot_power, efficiency,"
-                                 "heat_fraction, xray_fraction, baryon_fraction,"
-                                 "bombardment_value, cooldown, dispersion_model,"
-                                 "lens_radius, range, doubling_range, pivot)"
-                                 "VALUES "
-                                 "(:dataName, :shotPower_MJ, :efficiency,"
-                                 ":heatFraction, :xRayFraction, :baryonFraction,"
-                                 ":bombardmentValue, :cooldown_s, :dispersionModel,"
-                                 ":lensRadius_cm, :targetingRange_km, :doublingRange_km,"
-                                 ":pivotRange_deg)"
-                                 ";")
+    __SHIP_PARTICLE_WEAPON_STMT = """
+        INSERT INTO TIParticleWeapons
+             (module_name, shot_power, efficiency,
+             heat_fraction, xray_fraction, baryon_fraction,
+             bombardment_value, cooldown, dispersion_model,
+             lens_radius, range, doubling_range, pivot)
+             VALUES 
+             (:dataName, :shotPower_MJ, :efficiency,
+             :heatFraction, :xRayFraction, :baryonFraction,
+             :bombardmentValue, :cooldown_s, :dispersionModel,
+             :lensRadius_cm, :targetingRange_km, :doublingRange_km,
+             :pivotRange_deg);
+        """
 
-    __SHIP_ARMOR_MODULE_STMT = ("INSERT INTO TIArmor"
-                              "(module_name, density, vaporization, "
-                              "baryonic_rating, xray_rating)"
-                              "VALUES "
-                              "(:dataName, :density_kgm3,"
-                              ":heatofVaporization_MJkg, "
-                              ":baryonicHalfValue_cm,"
-                              ":xRayHalfValue_cm )"
-                              ";")
+    __SHIP_ARMOR_MODULE_STMT = """
+        INSERT INTO TIArmor
+          (module_name, density, vaporization, 
+          baryonic_rating, xray_rating)
+          VALUES 
+          (:dataName, :density_kgm3,
+          :heatofVaporization_MJkg, 
+          :baryonicHalfValue_cm,
+          :xRayHalfValue_cm );
+        """
 
-    __SHIP_ARMOR_SPECIALTY_STMT = ("INSERT INTO TIArmorSpecialization"
-                                 "(module_name, specialization, value)"
-                                 "VALUES "
-                                 "(:_dataName, :_spec, :_value)"
-                                 ";")
-
+    __SHIP_ARMOR_SPECIALTY_STMT = """
+        INSERT INTO TIArmorSpecialization
+             (module_name, specialization, value)
+             VALUES 
+             (:_dataName, :_spec, :_value);
+        """
 
     #Our database connection, which is updated on execution
     __database = None
-
-
 
     #Factions and technologies
 

@@ -48,7 +48,7 @@ if __name__ == '__main__':
     database = sqlite3.connect('test_database.db')
     database.row_factory = sqlite3.Row
 
-    project = "Project_Shipyard"
+    project = "Accelerando"
 
     print(f"Computing total research cost for project, { project }" )
 
@@ -56,6 +56,8 @@ if __name__ == '__main__':
 
     print(f"Total Cost: {t}")
     print(f"Dependencies: {r}")
+
+    database.close()
 
     #Grab base cost
    #cursor = database.cursor()
