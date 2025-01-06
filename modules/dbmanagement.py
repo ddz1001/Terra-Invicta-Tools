@@ -3,6 +3,8 @@ import os
 import sqlite3
 import json
 import sys
+import logging
+import re
 
 class TerraInvictaDatabaseManager:
     __TECH_ENTRY_STMT = """ 
@@ -283,8 +285,31 @@ class TerraInvictaDatabaseManager:
              (:_dataName, :_spec, :_value);
         """
 
+    __LOCALIZATION_TECHS_STMT = """
+        INSERT INTO LocalizationTITechEntries
+            (internal_name, language_code,
+            display_name_text, summary_text, description_text,
+            quote_text)
+            VALUES 
+            (:internal, :langCode, :display,
+            :summary, :description, :quote);
+    """
+
+    __LOCALIZATION_MODULES_STMT = """
+        INSERT INTO LocalizationTIShipModules
+            (module_name, language_code,
+            display_name_text, description_text)
+            VALUES 
+            (:module, :langCode, :display,
+            :description);
+    """
+
+    #
+
     #Our database connection, which is updated on execution
     __database = None
+
+    __logger = logging.getLogger('TerraInvictaDatabaseManager')
 
     #Factions and technologies
 
@@ -668,6 +693,30 @@ class TerraInvictaDatabaseManager:
 
         cursor.close()
 
+    def __insert_tech_localization(self, contents):
+        cursor = self.__database.cursor()
+
+        try:
+            cursor.execute(self.__LOCALIZATION_TECHS_STMT, contents)
+        except sqlite3.IntegrityError as e:
+            self.__logger.warning(f"IntegrityError encountered for tech { contents["internal"] }, continuing")
+
+        cursor.close()
+
+    def __insert_module_localization(self, contents):
+        cursor = self.__database.cursor()
+
+        #Its fine for us to ignore foreign key integrity errors in localizations since
+        #Pavonis includes some localization entries for techs which are not fully implemented in game
+        #or were removed from the game (such as the resisto-jets and redundant drives)
+        try:
+            cursor.execute(self.__LOCALIZATION_MODULES_STMT, contents)
+        except sqlite3.IntegrityError as e:
+            self.__logger.warning(f"IntegrityError encountered for module { contents["module"] }, continuing")
+
+
+        cursor.close()
+
     #Utility functions
     @staticmethod
     def __check_mount_type(mount_string):
@@ -710,8 +759,110 @@ class TerraInvictaDatabaseManager:
                 self.__insert_faction_requirements(json_object)
 
 
-    def __load_file(self, path, destination):
-        file = open( path, "r" )
+    def __handle_tech_localizations(self, language_code, localization_table):
+        tech_list = localization_table.keys()
+
+        for tech_key in tech_list:
+
+            # Skip deprecated entries
+            if "deprecated" in tech_key.lower():
+                continue
+
+            loc_entry = localization_table[tech_key]
+
+            # We must have at least a displayName in our entry
+            if not "displayName" in loc_entry:
+                continue
+
+
+            packed = {
+                "internal": tech_key,
+                "langCode": language_code,
+                "display": loc_entry.get("displayName",None),
+                "summary": loc_entry.get("summary", None),
+                "description": loc_entry.get("description", None),
+                "quote": loc_entry.get("quote", None),
+            }
+            self.__insert_tech_localization(packed)
+
+    def __handle_module_localizations(self, language_code, localization_table):
+        module_list = localization_table.keys()
+
+        for module_key in module_list:
+
+            #Skip deprecated entries
+            if "deprecated" in module_key.lower():
+                continue
+
+            loc_entry = localization_table[module_key]
+
+            #We must have at least a displayName in our entry
+            if not "displayName" in loc_entry:
+                continue
+
+            packed = {
+                "module": module_key,
+                "langCode": language_code,
+                "display": loc_entry.get("displayName", None),
+                "description": loc_entry.get("description", None),
+            }
+            self.__insert_module_localization(packed)
+
+    def __infer_localization_origin(self, principle):
+
+        module_set = {
+            "TIGunTemplate",
+            "TIShipHullTemplate",
+            "TIHeatSinkTemplate",
+            "TIPlasmaWeaponTemplate",
+            "TIDriveTemplate",
+            "TIMissileTemplate",
+            "TIBatteryTemplate",
+            "TIShipArmorTemplate",
+            "TIPowerPlantTemplate",
+            "TILaserWeaponTemplate",
+            "TIRadiatorTemplate",
+            "TIMagneticGunTemplate",
+            "TIParticleWeaponTemplate",
+            "TIUtilityModuleTemplate",
+        }
+
+        project_set = {
+            "TIProjectTemplate",
+            "TITechTemplate",
+        }
+
+        if principle in module_set:
+            return "ship_modules"
+        elif principle in project_set:
+            return "techs"
+        else:
+            raise ValueError
+
+
+    def __load_localization_file(self, path, destination: dict):
+        loc_file = open(path, "r", encoding="utf-8")
+        for line in loc_file:
+            line = line.strip()
+
+            # We need to ensure that the entry matches the expected pattern
+            result = re.search(r"\w+\.((displayName)|(quote)|(summary)|(description))\.[\w-]+=.*", line)
+            if not result:
+                continue
+
+            entry = line.split(".", 2)
+
+            target, value = entry[-1].split("=", 1)
+            #destination[target][entry[1]] = value
+            if not target in destination:
+                destination[target] = {}
+
+            destination[target][entry[1]] = value
+        loc_file.close()
+
+
+    def __load_json_file(self, path, destination):
+        file = open( path, "r", encoding="utf-8" )
 
         #we can infer the file via its name
         file_name = os.path.basename( file.name )
@@ -724,18 +875,79 @@ class TerraInvictaDatabaseManager:
             "body" : json_body,
         }
 
-    def __load_paths(self, path_list, destination):
+    def __load_json_paths(self, path_list, destination):
         for path in path_list:
             if os.path.isfile(path) and path.endswith(".json"):
-                self.__load_file(path, destination)
+                self.__load_json_file(path, destination)
             else:
                 raise ValueError(f"File {path} does not exist")
 
+    def __populate_localization_single(self, localization_path):
 
+        file = open(localization_path, "r")
+        file_name = os.path.basename( file.name )
+        template_name, language_code = file_name.split(".")
+
+        cnc = dict()
+        self.__load_localization_file(localization_path, cnc)
+
+        inferred = self.__infer_localization_origin(template_name)
+        if inferred == "ship_modules":
+            self.__handle_module_localizations(language_code, cnc)
+        elif inferred == "techs":
+            self.__handle_tech_localizations(language_code, cnc)
+        else:
+            raise ValueError
+
+    def __populate_localizations(self, database_url, localization_path_list):
+
+        for path in localization_path_list:
+            if not os.path.isfile(path):
+                raise ValueError(f"File {path} does not exist")
+
+        try:
+            self.__database = sqlite3.connect(database_url)
+            self.__database.row_factory = sqlite3.Row
+        except sqlite3.Error as e:
+            raise IOError(f"Error while connecting to database: {e}", e)
+
+
+        try:
+
+            self.__database.execute(" PRAGMA foreign_keys = ON ")
+            self.__database.execute(" BEGIN TRANSACTION")
+
+
+            for path in localization_path_list:
+                self.__populate_localization_single(path)
+
+            self.__database.commit()
+        except sqlite3.Error as e:
+            self.__database.rollback()
+            raise IOError(f"Error while updating database. Transaction rolled back:", e)
+        except KeyError as e:
+            self.__database.rollback()
+            raise KeyError(f"Key not found, transaction rolled back:", e)
+        except:
+            self.__database.rollback()
+            print(f"Unexpected error {sys.exc_info()[0]} , transaction rolled back:")
+            raise
+        finally:
+            try:
+                self.__database.close()
+            except sqlite3.Error as e:
+                _eg, exception, _tb = sys.exc_info()
+                if exception is not None:
+                    nex = copy.copy(e)
+                    nex.__cause__ = exception
+
+                    raise IOError(f"Error while closing database: {e}", nex)
+                else:
+                    raise IOError(f"Error while closing database. {e}", e)
 
     def __populate_db(self, database_url, path_list):
         entries = {}
-        self.__load_paths(path_list, entries)
+        self.__load_json_paths(path_list, entries)
 
         try:
             self.__database = sqlite3.connect(database_url)
@@ -868,6 +1080,8 @@ class TerraInvictaDatabaseManager:
     def wipe_db(self, database_url):
         self.__wipe_db(database_url)
 
+    def localize_db(self, database_url, loc_path_list):
+        self.__populate_localizations(database_url, loc_path_list)
 
 if __name__ == "__main__":
     dbhandler = TerraInvictaDatabaseManager()
@@ -884,6 +1098,15 @@ if __name__ == "__main__":
     for root, dirs, files in os.walk("../testfiles"):
         for name in files:
             json_path_list.append(os.path.abspath( os.path.join( root, name ) ))
+        break
+
+
+    localization_path_list = []
+    for root, dirs, files in os.walk("../testfiles/localization"):
+        for name in files:
+            localization_path_list.append(os.path.abspath( os.path.join( root, name ) ))
+        break
+
 
     dbhandler.populate_db( "../test_database.db", json_path_list )
-
+    dbhandler.localize_db( "../test_database.db", localization_path_list )

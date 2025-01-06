@@ -1,6 +1,7 @@
 PRAGMA foreign_keys;
 PRAGMA foreign_keys = ON;
 
+--Technologies
 
 CREATE TABLE `TITechEntries` (
   `internal_name` TEXT UNIQUE PRIMARY KEY,
@@ -52,6 +53,8 @@ CREATE TABLE `TIProjects` (
 
   FOREIGN KEY (`internal_name`) REFERENCES `TITechEntries` (`internal_name`) ON DELETE CASCADE
 );
+
+--Modules and weapons
 
 CREATE TABLE `TIShipModules` (
   `module_name` TEXT UNIQUE PRIMARY KEY,
@@ -340,6 +343,32 @@ CREATE TABLE `TIParticleWeapons` (
   FOREIGN KEY (`module_name`) REFERENCES `TIWeapons` (`module_name`) ON DELETE CASCADE
 );
 
+--Localization
+
+CREATE TABLE `LocalizationTITechEntries` (
+    `internal_name` TEXT NOT NULL,
+    `language_code` TEXT NOT NULL,
+    `display_name_text` TEXT NOT NULL, --This is the minimum for a localization entry
+    `summary_text` TEXT NULL,
+    `description_text` TEXT NULL,
+    `quote_text` TEXT NULL,
+
+    PRIMARY KEY (`internal_name`, `language_code`),
+    FOREIGN KEY (`internal_name`) REFERENCES TITechEntries (`internal_name`) ON DELETE CASCADE
+);
+
+CREATE TABLE `LocalizationTIShipModules`(
+    `module_name` TEXT NOT NULL,
+    `language_code` TEXT NOT NULL,
+    `display_name_text` TEXT NOT NULL,
+    `description_text` TEXT NULL,
+
+    PRIMARY KEY (`module_name`, `language_code`),
+    FOREIGN KEY (`module_name`) REFERENCES TIShipModules (`module_name`) ON DELETE CASCADE
+);
+
+-- Configuration
+
 CREATE TABLE `TIDatabaseInfo` (
     `entry_name` TEXT UNIQUE PRIMARY KEY,
     `entry_value` TEXT
@@ -347,6 +376,7 @@ CREATE TABLE `TIDatabaseInfo` (
 
 INSERT INTO `TIDatabaseInfo` values('db_version', '0.1');
 INSERT INTO `TIDatabaseInfo` values('db_populated', 'false');
+INSERT INTO `TIDatabaseInfo` values('db_localized', 'false');
 
 --UPDATE TIDatabaseInfo set entry_value = 'true' where entry_name = 'db_populated';
 
