@@ -304,14 +304,51 @@ class TerraInvictaDatabaseManager:
             :description);
     """
 
-    #
+    #Shorter way to built the templates
+    @staticmethod
+    def __mkctx( ctx_type, insert_cb ):
+        return {
+            "type": ctx_type,
+            "callback": insert_cb,
+        }
+
+    #Our templates, defined in constructor
+    __template_context = None
 
     #Our database connection, which is updated on execution
     __database = None
 
     __logger = logging.getLogger('TerraInvictaDatabaseManager')
 
+
+    def __new__( cls ):
+        return super( TerraInvictaDatabaseManager, cls ).__new__( cls )
+
+    def __init__(self):
+        self.__template_context = {
+            "TIBatteryTemplate": self.__mkctx("ship_module", self.__insert_battery_module),
+            "TIDriveTemplate": self.__mkctx("ship_module", self.__insert_drive_module),
+            "TIFactionTemplate": self.__mkctx("faction", self.__insert_faction),
+            "TIGunTemplate": self.__mkctx("ship_module", self.__insert_conventional_gun_weapon_module),
+            "TIHeatSinkTemplate": self.__mkctx("ship_module", self.__insert_heat_sink_module),
+            "TILaserWeaponTemplate": self.__mkctx("ship_module", self.__insert_laser_weapon_module),
+            "TIMagneticGunTemplate": self.__mkctx("ship_module", self.__insert_magnetic_gun_weapon_module),
+            "TIMissileTemplate": self.__mkctx("ship_module", self.__insert_missile_weapon_module),
+            "TIParticleWeaponTemplate": self.__mkctx("ship_module", self.__insert_particle_weapon_module),
+            "TIPlasmaWeaponTemplate": self.__mkctx("ship_module", self.__insert_plasma_weapon_module),
+            "TIPowerPlantTemplate": self.__mkctx("ship_module", self.__insert_power_plant_module),
+            "TIProjectTemplate": self.__mkctx("tech", self.__insert_project_technology),
+            "TIRadiatorTemplate": self.__mkctx("ship_module", self.__insert_radiator_module),
+            "TIShipArmorTemplate": self.__mkctx("ship_module", self.__insert_armor_module),
+            "TIShipHullTemplate": self.__mkctx("ship_module", self.__insert_hull_module),
+            "TITechTemplate": self.__mkctx("tech", self.__insert_global_technology),
+            "TIUtilityModuleTemplate": self.__mkctx("ship_module", self.__insert_utility_module),
+        }
+
+
+
     #Factions and technologies
+
 
     def __insert_global_technology(self, json_object):
         cursor = self.__database.cursor()
@@ -733,6 +770,9 @@ class TerraInvictaDatabaseManager:
     def __load_json(file):
         return json.load( file )
 
+    def __handle_template(self, entries, template_name):
+        callback = self.__template_context[template_name]["callback"]
+        self.__handle_json_contents(entries, template_name, callback )
 
     def __handle_json_contents(self, entries, template_name, callback):
         json_object_array = entries[template_name]["body"]
@@ -763,6 +803,8 @@ class TerraInvictaDatabaseManager:
         tech_list = localization_table.keys()
 
         for tech_key in tech_list:
+
+            #We try to filter out most of the invalid entries, with integrity error checking as a last resort
 
             # Skip deprecated entries
             if "deprecated" in tech_key.lower():
@@ -809,35 +851,8 @@ class TerraInvictaDatabaseManager:
             self.__insert_module_localization(packed)
 
     def __infer_localization_origin(self, principle):
+        return self.__template_context[principle]["type"]
 
-        module_set = {
-            "TIGunTemplate",
-            "TIShipHullTemplate",
-            "TIHeatSinkTemplate",
-            "TIPlasmaWeaponTemplate",
-            "TIDriveTemplate",
-            "TIMissileTemplate",
-            "TIBatteryTemplate",
-            "TIShipArmorTemplate",
-            "TIPowerPlantTemplate",
-            "TILaserWeaponTemplate",
-            "TIRadiatorTemplate",
-            "TIMagneticGunTemplate",
-            "TIParticleWeaponTemplate",
-            "TIUtilityModuleTemplate",
-        }
-
-        project_set = {
-            "TIProjectTemplate",
-            "TITechTemplate",
-        }
-
-        if principle in module_set:
-            return "ship_modules"
-        elif principle in project_set:
-            return "techs"
-        else:
-            raise ValueError
 
 
     def __load_localization_file(self, path, destination: dict):
@@ -892,9 +907,9 @@ class TerraInvictaDatabaseManager:
         self.__load_localization_file(localization_path, cnc)
 
         inferred = self.__infer_localization_origin(template_name)
-        if inferred == "ship_modules":
+        if inferred == "ship_module":
             self.__handle_module_localizations(language_code, cnc)
-        elif inferred == "techs":
+        elif inferred == "tech":
             self.__handle_tech_localizations(language_code, cnc)
         else:
             raise ValueError
@@ -947,6 +962,7 @@ class TerraInvictaDatabaseManager:
 
     def __populate_db(self, database_url, path_list):
         entries = {}
+
         self.__load_json_paths(path_list, entries)
 
         try:
@@ -973,33 +989,33 @@ class TerraInvictaDatabaseManager:
             self.__database.execute("INSERT INTO `TITechEntries` values( 'Base', 'Base project for game start', false, 'none', 'none', 'none', 0 );")
 
             #Handle factions, global techs, then project techs, the order is important
-            self.__handle_json_contents(entries, "TIFactionTemplate", self.__insert_faction)
-            self.__handle_json_contents(entries, "TITechTemplate", self.__insert_global_technology)
-            self.__handle_json_contents(entries, "TIProjectTemplate", self.__insert_project_technology)
+            self.__handle_template(entries, "TIFactionTemplate")
+            self.__handle_template(entries, "TITechTemplate")
+            self.__handle_template(entries, "TIProjectTemplate")
 
             #We can now update the prerequisites for techs
             self.__handle_tech_prerequisites(entries)
             self.__handle_faction_requirements(entries)
 
             #Add modules, order isn't important here, once techs are inserted
-            self.__handle_json_contents(entries, "TIShipHullTemplate", self.__insert_hull_module)
-            self.__handle_json_contents(entries, "TIPowerPlantTemplate", self.__insert_power_plant_module)
-            self.__handle_json_contents(entries, "TIBatteryTemplate", self.__insert_battery_module)
-            self.__handle_json_contents(entries, "TIHeatSinkTemplate", self.__insert_heat_sink_module)
-            self.__handle_json_contents(entries, "TIRadiatorTemplate", self.__insert_radiator_module)
-            self.__handle_json_contents(entries, "TIDriveTemplate", self.__insert_drive_module)
-            self.__handle_json_contents(entries, "TIUtilityModuleTemplate", self.__insert_utility_module)
-            self.__handle_json_contents(entries, "TIShipArmorTemplate", self.__insert_armor_module)
+            self.__handle_template(entries, "TIShipHullTemplate")
+            self.__handle_template(entries, "TIPowerPlantTemplate")
+            self.__handle_template(entries, "TIBatteryTemplate")
+            self.__handle_template(entries, "TIHeatSinkTemplate")
+            self.__handle_template(entries, "TIRadiatorTemplate")
+            self.__handle_template(entries, "TIDriveTemplate")
+            self.__handle_template(entries, "TIUtilityModuleTemplate")
+            self.__handle_template(entries, "TIShipArmorTemplate")
 
             #Ballistic Weapons
-            self.__handle_json_contents(entries, "TIGunTemplate", self.__insert_conventional_gun_weapon_module)
-            self.__handle_json_contents(entries, "TIMagneticGunTemplate", self.__insert_magnetic_gun_weapon_module)
-            self.__handle_json_contents(entries, "TIMissileTemplate", self.__insert_missile_weapon_module)
+            self.__handle_template(entries, "TIGunTemplate")
+            self.__handle_template(entries, "TIMagneticGunTemplate")
+            self.__handle_template(entries, "TIMissileTemplate")
 
             #Energy weapons
-            self.__handle_json_contents(entries, "TILaserWeaponTemplate", self.__insert_laser_weapon_module)
-            self.__handle_json_contents(entries, "TIPlasmaWeaponTemplate", self.__insert_plasma_weapon_module)
-            self.__handle_json_contents(entries, "TIParticleWeaponTemplate", self.__insert_particle_weapon_module)
+            self.__handle_template(entries, "TILaserWeaponTemplate")
+            self.__handle_template(entries, "TIPlasmaWeaponTemplate")
+            self.__handle_template(entries, "TIParticleWeaponTemplate")
 
 
             self.__database.execute("UPDATE TIDatabaseInfo set entry_value = 'true' where entry_name = 'db_populated';")

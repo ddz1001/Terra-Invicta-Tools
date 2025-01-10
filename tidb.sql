@@ -64,6 +64,56 @@ CREATE TABLE `TIShipModules` (
   FOREIGN KEY (`required_project`) REFERENCES `TITechEntries` (`internal_name`) ON DELETE CASCADE
 );
 
+CREATE TABLE `TIHabModules` (
+    `module_name` TEXT UNIQUE PRIMARY KEY,
+    `friendly_name` TEXT NOT NULL,
+    `required_project` TEXT NOT NULL,
+    `automated` TEXT NOT NULL,
+    `one_per_hab` BOOLEAN NOT NULL,
+    `is_hab_core` BOOLEAN NOT NULL,
+    `is_mining_module` BOOLEAN NOT NULL,
+    `is_ship_construction_module` BOOLEAN NOT NULL,
+    `can_resupply` BOOLEAN NOT NULL,
+    `is_alien` BOOLEAN NOT NULL,
+    `crew_needed` INTEGER NOT NULL,
+    `hab_tier` INTEGER NOT NULL,
+    `power` INTEGER NOT NULL,
+    `mission_control` INTEGER NOT NULL,
+    `base_mass` INTEGER NOT NULL,
+
+    FOREIGN KEY (`required_project`) REFERENCES `TITechEntries` (`internal_name`) ON DELETE CASCADE
+);
+
+CREATE TABLE `TIHabModuleIncomes` (
+    `module_name` TEXT UNIQUE PRIMARY KEY,
+    `money` INTEGER NOT NULL,
+    `influence` INTEGER NOT NULL,
+    `ops` INTEGER NOT NULL,
+    `research` INTEGER NOT NULL,
+    `projects` INTEGER NOT NULL,
+    `antimatter` STRING NOT NULL,
+    `control_point_capacity` INTEGER NOT NULL,
+
+    FOREIGN KEY (`module_name`) REFERENCES `TIHabModules`(`module_name`) ON DELETE CASCADE
+);
+
+CREATE TABLE `TIHabModuleExpenses` (
+    `module_name` TEXT UNIQUE PRIMARY KEY,
+    `water`       STRING NOT NULL,
+    `volatiles`   STRING NOT NULL,
+    `metals`      STRING NOT NULL,
+    `nobleMetals` STRING NOT NULL,
+    `fissiles`    STRING NOT NULL,
+    `exotics`     STRING NOT NULL,
+    `antimatter`  STRING NOT NULL,
+    `money`       STRING NOT NULL,
+    `boost`       STRING NOT NULL,
+
+    FOREIGN KEY (`module_name`) REFERENCES `TIHabModules` (`module_name`) ON DELETE CASCADE
+);
+
+
+
 CREATE TABLE `TIModuleMaterials` (
     'module_name' TEXT UNIQUE PRIMARY KEY,
     `water` STRING NOT NULL,
@@ -343,6 +393,12 @@ CREATE TABLE `TIParticleWeapons` (
   FOREIGN KEY (`module_name`) REFERENCES `TIWeapons` (`module_name`) ON DELETE CASCADE
 );
 
+--Since the values for this table are not in the templates or localization files, they will have to be hardcoded
+CREATE TABLE `TIShipRoles` (
+    `role_name` TEXT UNIQUE PRIMARY KEY,
+    `role_description` TEXT NOT NULL
+);
+
 --Localization
 
 CREATE TABLE `LocalizationTITechEntries` (
@@ -360,7 +416,7 @@ CREATE TABLE `LocalizationTITechEntries` (
 CREATE TABLE `LocalizationTIShipModules`(
     `module_name` TEXT NOT NULL,
     `language_code` TEXT NOT NULL,
-    `display_name_text` TEXT NOT NULL,
+    `display_name_text` TEXT NOT NULL,  --This is the minimum for a localization entry
     `description_text` TEXT NULL,
 
     PRIMARY KEY (`module_name`, `language_code`),
@@ -380,4 +436,24 @@ INSERT INTO `TIDatabaseInfo` values('db_localized', 'false');
 
 --UPDATE TIDatabaseInfo set entry_value = 'true' where entry_name = 'db_populated';
 
+--Here is where we hardcode in our ship roles
+INSERT INTO `TIShipRoles` values ('SS_Interceptor', 'Interceptor');
+INSERT INTO `TIShipRoles` values ('MS_Strike', 'Strike');
+INSERT INTO `TIShipRoles` values ('LS_Penetrator', 'Penetrator');
+INSERT INTO `TIShipRoles` values ('LS_Protector', 'Protector');
+INSERT INTO `TIShipRoles` values ('SM_Patrol', 'Patrol');
+INSERT INTO `TIShipRoles` values ('MM_SpaceSuperiority', 'Space Superiority');
+INSERT INTO `TIShipRoles` values ('LM_Interdictor', 'Interdictor');
+INSERT INTO `TIShipRoles` values ('LM_Raider', 'Raider');
+INSERT INTO `TIShipRoles` values ('SL_Defender', 'Defender');
+INSERT INTO `TIShipRoles` values ('ML_Standoff', 'Standoff');
+INSERT INTO `TIShipRoles` values ('LL_Intruder', 'Intruder');
+INSERT INTO `TIShipRoles` values ('LL_Bomber', 'Bomber');
+INSERT INTO `TIShipRoles` values ('TroopCarrier', 'Troop Carrier');
+INSERT INTO `TIShipRoles` values ('ArmyCarrier', 'Army Carrier');
+INSERT INTO `TIShipRoles` values ('Explorer', 'Explorer');
+INSERT INTO `TIShipRoles` values ('InnerSystemColonyShip', 'Inner System Colony Ship');
+INSERT INTO `TIShipRoles` values ('OuterSystemColonyShip', 'Outer System Colony Ship');
+INSERT INTO `TIShipRoles` values ('CouncilorTransport', 'Transport');
+INSERT INTO `TIShipRoles` values ('EarthSurveillance', 'Surveillance');
 
