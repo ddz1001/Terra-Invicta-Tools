@@ -49,12 +49,66 @@ class TerraInvictaDatabaseManager:
            (:_dataName, :_faction);
         """
 
+    __MODULE_STMT = """
+        INSERT INTO TIModules 
+        (module_name, friendly_name, required_project)
+        VALUES
+        (:dataName, :friendlyName, :requiredProjectName);
+    """
+
     __SHIP_MODULE_STMT = """
         INSERT INTO TIShipModules
-            (module_name, friendly_name, required_project, module_type)
+            (module_name, module_type)
             VALUES 
-            (:dataName, :friendlyName, :requiredProjectName, :_type);
+            (:dataName, :_type);
+    """
+
+    __MODULE_MATERIALS_STMT = """
+        INSERT INTO TIModuleMaterials
+           (module_name, water, volatiles,
+           metals, nobleMetals, fissiles,
+           exotics, antimatter)
+           VALUES 
+           (:dataName, :water, :volatiles, 
+           :metals, :nobleMetals, :fissiles, 
+           :exotics, :antimatter);
         """
+
+    __HAB_MODULE_STMT = """
+        INSERT INTO TIHabModules
+        (module_name, automated, hab_type, one_per_hab, is_hab_core,
+        is_mining_module, is_ship_construction_module,
+        can_resupply, is_alien, crew_needed,
+        hab_tier, power, mission_control, base_mass)
+        VALUES 
+        (:dataName, :automated, :habType, :onePerHab,
+        :coreModule, :mine, :allowsShipConstruction,
+        :allowsResupply, :alienModule, :crew, :tier,
+        :power, :missionControl, :baseMass_tons);
+    """
+
+    __HAB_MODULE_INCOMES_STMT = """
+        INSERT INTO TIHabModuleIncomes
+        (module_name, money, influence, ops, 
+        research, projects, antimatter, 
+        control_point_capacity )
+        VALUES 
+        (:dataName, :incomeMoney_month,
+        :incomeInfluence_month, :incomeOps_month,
+        :incomeResearch_month, :incomeProjects,
+        :incomeAntimatter_month, :controlPointCapacity);
+    """
+
+    __HAB_MODULE_EXPENSES_STMT = """
+        INSERT INTO TIHabModuleExpenses
+        (module_name, water, volatiles, metals,      
+        nobleMetals, fissiles, exotics, antimatter,  
+        money, boost)
+        VALUES 
+        (:dataName, :water, :volatiles, :metals, 
+        :nobleMetals, :fissiles, :exotics, :antimatter,
+        :money, :boost);
+    """
 
     __SHIP_HULL_MODULE_STMT = """
         INSERT INTO TIShipHulls
@@ -124,17 +178,6 @@ class TerraInvictaDatabaseManager:
              :emissivity, :vulnerability,
              :crew, :radiatorType, :collector);
             """
-
-    __SHIP_MODULE_MATERIALS_STMT = """
-        INSERT INTO TIModuleMaterials
-           (module_name, water, volatiles,
-           metals, nobleMetals, fissiles,
-           exotics, antimatter)
-           VALUES 
-           (:dataName, :water, :volatiles, 
-           :metals, :nobleMetals, :fissiles, 
-           :exotics, :antimatter);
-        """
 
     __SHIP_BATTERY_MODULE_STMT = """ 
         INSERT INTO TIBatteries
@@ -296,7 +339,7 @@ class TerraInvictaDatabaseManager:
     """
 
     __LOCALIZATION_MODULES_STMT = """
-        INSERT INTO LocalizationTIShipModules
+        INSERT INTO LocalizationTIModules
             (module_name, language_code,
             display_name_text, description_text)
             VALUES 
@@ -343,6 +386,7 @@ class TerraInvictaDatabaseManager:
             "TIShipHullTemplate": self.__mkctx("ship_module", self.__insert_hull_module),
             "TITechTemplate": self.__mkctx("tech", self.__insert_global_technology),
             "TIUtilityModuleTemplate": self.__mkctx("ship_module", self.__insert_utility_module),
+            "TIHabModuleTemplate": self.__mkctx("hab_module", self.__insert_hab_module),
         }
 
 
@@ -411,7 +455,7 @@ class TerraInvictaDatabaseManager:
 
 
 
-    #Standard Modules
+    #Base module
 
     def __insert_base_module(self, contents, cursor):
         if not "requiredProjectName" in contents or contents["requiredProjectName"].strip() == "":
@@ -421,17 +465,63 @@ class TerraInvictaDatabaseManager:
         if "displayName" in contents:
             contents["friendlyName"] = contents["displayName"]
 
-        cursor.execute(self.__SHIP_MODULE_STMT, contents)
+        cursor.execute(self.__MODULE_STMT, contents)
 
         if "weightedBuildMaterials" in contents:
             self.__insert_module_composition(contents)
+
+    def __insert_ship_module(self, contents, cursor):
+        self.__insert_base_module(contents, cursor)
+        cursor.execute(self.__SHIP_MODULE_STMT, contents)
+
+    #Habitat Modules
+
+    def __insert_hab_module(self, contents):
+        cursor = self.__database.cursor()
+        self.__insert_base_module(contents, cursor)
+        cursor.execute(self.__HAB_MODULE_STMT, contents)
+        self.__insert_hab_module_incomes(contents)
+        cursor.close()
+
+        if "supportMaterials_month" in contents:
+            self.__insert_hab_module_expenses(contents)
+
+    def __insert_hab_module_incomes(self, contents):
+        cursor = self.__database.cursor()
+        cursor.execute(self.__HAB_MODULE_INCOMES_STMT, contents)
+        cursor.close()
+
+    def __insert_hab_module_expenses(self, contents):
+        cursor = self.__database.cursor()
+
+        expenses = {
+            "dataName": None,
+            "water": "0",
+            "volatiles": "0",
+            "metals": "0",
+            "nobleMetals": "0",
+            "fissiles": "0",
+            "exotics": "0",
+            "antimatter": "0",
+            "money": "0",
+            "boost": "0"
+        }
+
+        expenses.update( { key: contents[key] for key in expenses if key in contents } )
+        expenses.update( {key: contents["supportMaterials_month"][key] for key in expenses if key in contents["supportMaterials_month"] } )
+
+
+        cursor.execute( self.__HAB_MODULE_EXPENSES_STMT, expenses )
+        cursor.close()
+
+    #Standard Ship Modules
 
     def __insert_hull_module(self, json_object):
         cursor = self.__database.cursor()
 
         contents = { "_type" : "hull" }
         contents.update( json_object )
-        self.__insert_base_module(contents, cursor)
+        self.__insert_ship_module(contents, cursor)
         cursor.execute(self.__SHIP_HULL_MODULE_STMT, contents)
         cursor.close()
 
@@ -440,7 +530,7 @@ class TerraInvictaDatabaseManager:
 
         contents = { "_type" : "power_plant" }
         contents.update( json_object )
-        self.__insert_base_module(contents, cursor)
+        self.__insert_ship_module(contents, cursor)
         cursor.execute(self.__SHIP_POWER_PLANT_MODULE_STMT, contents)
         cursor.close()
 
@@ -483,7 +573,7 @@ class TerraInvictaDatabaseManager:
 
         contents.update( json_object)
 
-        self.__insert_base_module(contents, cursor)
+        self.__insert_ship_module(contents, cursor)
         cursor.execute(self.__SHIP_DRIVE_MODULE_STMT, contents)
 
         self.__insert_drive_propellant(common_drive_name, json_object)
@@ -495,7 +585,7 @@ class TerraInvictaDatabaseManager:
         contents = { "_type" : "radiator" }
         contents.update( json_object )
 
-        self.__insert_base_module(contents, cursor)
+        self.__insert_ship_module(contents, cursor)
         cursor.execute(self.__SHIP_RADIATOR_MODULE_STMT, contents)
 
         cursor.close()
@@ -506,7 +596,7 @@ class TerraInvictaDatabaseManager:
         contents = { "_type" : "battery" }
         contents.update( json_object )
 
-        self.__insert_base_module(contents, cursor)
+        self.__insert_ship_module(contents, cursor)
         cursor.execute(self.__SHIP_BATTERY_MODULE_STMT, contents)
         cursor.close()
 
@@ -515,7 +605,7 @@ class TerraInvictaDatabaseManager:
         contents = { "_type" : "heat_sink" }
         contents.update( json_object )
 
-        self.__insert_base_module(contents, cursor)
+        self.__insert_ship_module(contents, cursor)
         cursor.execute(self.__SHIP_HEAT_SINK_MODULE_STMT, contents)
         cursor.close()
 
@@ -536,7 +626,7 @@ class TerraInvictaDatabaseManager:
 
         contents.update( json_object )
 
-        self.__insert_base_module(contents, cursor)
+        self.__insert_ship_module(contents, cursor)
         cursor.execute(self.__SHIP_UTILITY_MODULE_STMT, contents)
 
         if "specialModuleRules" in json_object:
@@ -562,7 +652,7 @@ class TerraInvictaDatabaseManager:
         contents.update({key: json_object["weightedBuildMaterials"][key] for key in contents if (key in json_object["weightedBuildMaterials"] and
                     json_object["weightedBuildMaterials"][key] is not None)})
 
-        cursor.execute(self.__SHIP_MODULE_MATERIALS_STMT, contents)
+        cursor.execute(self.__MODULE_MATERIALS_STMT, contents)
         cursor.close()
 
     def __insert_utility_module_effects(self, json_object):
@@ -583,7 +673,7 @@ class TerraInvictaDatabaseManager:
     #Weapons modules
 
     def __insert_base_weapon_module(self, contents, cursor):
-        self.__insert_base_module(contents, cursor)
+        self.__insert_ship_module(contents, cursor)
 
         #For uncrewed alien weapons
         if not "crew" in contents:
@@ -709,7 +799,7 @@ class TerraInvictaDatabaseManager:
         contents = {"_type": "armor"}
         contents.update(json_object)
 
-        self.__insert_base_module(contents, cursor)
+        self.__insert_ship_module(contents, cursor)
         cursor.execute(self.__SHIP_ARMOR_MODULE_STMT, contents)
 
         if "specialties" in json_object:
@@ -736,7 +826,7 @@ class TerraInvictaDatabaseManager:
         try:
             cursor.execute(self.__LOCALIZATION_TECHS_STMT, contents)
         except sqlite3.IntegrityError as e:
-            self.__logger.warning(f"IntegrityError encountered for tech { contents["internal"] }, continuing")
+            self.__logger.warning(f"IntegrityError encountered for tech localization { contents["internal"] }, continuing")
 
         cursor.close()
 
@@ -749,7 +839,7 @@ class TerraInvictaDatabaseManager:
         try:
             cursor.execute(self.__LOCALIZATION_MODULES_STMT, contents)
         except sqlite3.IntegrityError as e:
-            self.__logger.warning(f"IntegrityError encountered for module { contents["module"] }, continuing")
+            self.__logger.warning(f"IntegrityError encountered for module localization { contents["module"] }, continuing")
 
 
         cursor.close()
@@ -767,6 +857,10 @@ class TerraInvictaDatabaseManager:
         return "disable" in json_object and json_object["disable"]
 
     @staticmethod
+    def __entry_destroyed_module(json_object):
+        return "destroyed" in json_object["dataName"].lower()
+
+    @staticmethod
     def __load_json(file):
         return json.load( file )
 
@@ -777,7 +871,7 @@ class TerraInvictaDatabaseManager:
     def __handle_json_contents(self, entries, template_name, callback):
         json_object_array = entries[template_name]["body"]
         for json_object in json_object_array:
-            if not self.__entry_disabled(json_object):
+            if not self.__entry_disabled(json_object) and not self.__entry_destroyed_module(json_object):
                 callback(json_object)
 
     def __handle_tech_prerequisites(self, entries):
@@ -907,7 +1001,7 @@ class TerraInvictaDatabaseManager:
         self.__load_localization_file(localization_path, cnc)
 
         inferred = self.__infer_localization_origin(template_name)
-        if inferred == "ship_module":
+        if inferred == "ship_module" or inferred == "hab_module":
             self.__handle_module_localizations(language_code, cnc)
         elif inferred == "tech":
             self.__handle_tech_localizations(language_code, cnc)
@@ -1017,6 +1111,8 @@ class TerraInvictaDatabaseManager:
             self.__handle_template(entries, "TIPlasmaWeaponTemplate")
             self.__handle_template(entries, "TIParticleWeaponTemplate")
 
+            #Hab Modules
+            self.__handle_template(entries, "TIHabModuleTemplate")
 
             self.__database.execute("UPDATE TIDatabaseInfo set entry_value = 'true' where entry_name = 'db_populated';")
 

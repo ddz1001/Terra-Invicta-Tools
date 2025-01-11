@@ -56,19 +56,23 @@ CREATE TABLE TIProjects (
 
 --Modules and weapons
 
+CREATE TABLE TIModules (
+    module_name TEXT UNIQUE PRIMARY KEY,
+    friendly_name TEXT NOT NULL,
+    required_project NEXT NOT NULL,
+    FOREIGN KEY (required_project) REFERENCES TITechEntries (internal_name) ON DELETE CASCADE
+);
+
 CREATE TABLE TIShipModules (
   module_name TEXT UNIQUE PRIMARY KEY,
-  friendly_name TEXT NOT NULL,
-  required_project TEXT NOT NULL,
   module_type TEXT NOT NULL CHECK (module_type IN ('hull', 'drive', 'nose_weapon', 'hull_weapon', 'heat_sink', 'power_plant', 'radiator', 'battery', 'utility', 'armor')),
-  FOREIGN KEY (required_project) REFERENCES TITechEntries (internal_name) ON DELETE CASCADE
+  FOREIGN KEY (module_name) REFERENCES TIModules (module_name) ON DELETE CASCADE
 );
 
 CREATE TABLE TIHabModules (
     module_name TEXT UNIQUE PRIMARY KEY,
-    friendly_name TEXT NOT NULL,
-    required_project TEXT NOT NULL,
     automated TEXT NOT NULL,
+    hab_type TEXT NOT NULL,
     one_per_hab BOOLEAN NOT NULL,
     is_hab_core BOOLEAN NOT NULL,
     is_mining_module BOOLEAN NOT NULL,
@@ -81,7 +85,7 @@ CREATE TABLE TIHabModules (
     mission_control INTEGER NOT NULL,
     base_mass INTEGER NOT NULL,
 
-    FOREIGN KEY (required_project) REFERENCES TITechEntries (internal_name) ON DELETE CASCADE
+    FOREIGN KEY (module_name) REFERENCES TIHabModules (module_name) ON DELETE CASCADE
 );
 
 CREATE TABLE TIHabModuleIncomes (
@@ -124,7 +128,7 @@ CREATE TABLE TIModuleMaterials (
     exotics STRING NOT NULL,
     antimatter STRING NOT NULL,
 
-    FOREIGN KEY (module_name) REFERENCES TIShipModules (module_name) ON DELETE CASCADE
+    FOREIGN KEY (module_name) REFERENCES TIModules (module_name) ON DELETE CASCADE
 );
 
 
@@ -413,14 +417,14 @@ CREATE TABLE LocalizationTITechEntries (
     FOREIGN KEY (internal_name) REFERENCES TITechEntries (internal_name) ON DELETE CASCADE
 );
 
-CREATE TABLE LocalizationTIShipModules(
+CREATE TABLE LocalizationTIModules(
     module_name TEXT NOT NULL,
     language_code TEXT NOT NULL,
     display_name_text TEXT NOT NULL,  --This is the minimum for a localization entry
     description_text TEXT NULL,
 
     PRIMARY KEY (module_name, language_code),
-    FOREIGN KEY (module_name) REFERENCES TIShipModules (module_name) ON DELETE CASCADE
+    FOREIGN KEY (module_name) REFERENCES TIModules (module_name) ON DELETE CASCADE
 );
 
 -- Configuration
