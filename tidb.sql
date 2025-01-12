@@ -427,6 +427,18 @@ CREATE TABLE LocalizationTIModules(
     FOREIGN KEY (module_name) REFERENCES TIModules (module_name) ON DELETE CASCADE
 );
 
+--Precalculations
+--To avoid having to run expensive recursive queries for cost calculation, we can
+--just do it once and search this table for the sum total.
+
+CREATE TABLE PrecalculatedPrerequisiteCosts(
+    internal_name TEXT UNIQUE PRIMARY KEY,
+    dependency_count INTEGER NOT NULL,
+    cost_sum_total INTEGER NOT NULL,
+
+    FOREIGN KEY (internal_name) REFERENCES TITechEntries( internal_name ) ON DELETE CASCADE
+);
+
 -- Configuration
 
 CREATE TABLE TIDatabaseInfo (

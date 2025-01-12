@@ -1195,6 +1195,9 @@ class TerraInvictaDatabaseManager:
     def localize_db(self, database_url, loc_path_list):
         self.__populate_localizations(database_url, loc_path_list)
 
+    def precalculate_dependency_costs(self):
+        pass
+
 if __name__ == "__main__":
     dbhandler = TerraInvictaDatabaseManager()
 
