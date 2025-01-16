@@ -5,6 +5,7 @@ import json
 import sys
 import logging
 import re
+import prereqchain as prq
 
 class TerraInvictaDatabaseManager:
     __TECH_ENTRY_STMT = """ 
@@ -128,6 +129,14 @@ class TerraInvictaDatabaseManager:
              :internalModules, :thrusterMultiplier);
         """
 
+    __SHIP_HULL_MODULE_SLOT_STMT = """
+        INSERT INTO TIShipHullModuleSlots
+            (module_name, slot_type, slot_number, 
+            x_coordinate, y_coordinate)
+            VALUES 
+            (:dataName, :moduleSlotType, :_index, :x, :y);
+    """
+
     __SHIP_POWER_PLANT_MODULE_STMT = """ 
         INSERT INTO TIPowerPlants
             (module_name, plant_class,
@@ -213,11 +222,11 @@ class TerraInvictaDatabaseManager:
 
     __SHIP_WEAPON_MODULE_STMT = """
         INSERT INTO TIWeapons
-           (module_name, module_mass, mount_type,
+           (module_name, module_mass, weapon_type, mount_type,
            can_attack, can_defend, crew_needed)
            VALUES 
            (:dataName, :baseWeaponMass_tons, 
-           :mount, :attackMode, :defenseMode,
+           :_weapon_type, :mount, :attackMode, :defenseMode,
            :crew);
         """
 
@@ -345,6 +354,13 @@ class TerraInvictaDatabaseManager:
             VALUES 
             (:module, :langCode, :display,
             :description);
+    """
+
+    __PREREQ_CALCULATION_STMT = """
+        INSERT INTO PrecalculatedPrerequisiteCosts
+        (internal_name, dependency_count, cost_sum_total)
+        VALUES 
+        (:internalName, :dependencyCount, :costSumTotal);
     """
 
     #Shorter way to built the templates
@@ -523,7 +539,22 @@ class TerraInvictaDatabaseManager:
         contents.update( json_object )
         self.__insert_ship_module(contents, cursor)
         cursor.execute(self.__SHIP_HULL_MODULE_STMT, contents)
+
+        #Insert module slots
+        array = json_object["shipModuleSlots"]
+        index = 0
+        for sub_object in array:
+            dtc = sub_object.copy() #The mapping is nearly one-to-one with no nulls or optionals
+            dtc.setdefault("dataName", json_object["dataName"])
+            dtc.setdefault("_index", index)
+            self.__insert_hull_module_slot(dtc, cursor)
+            index += 1
+
         cursor.close()
+
+    #Ship module slots
+    def __insert_hull_module_slot( self, contents, cursor ):
+        cursor.execute(self.__SHIP_HULL_MODULE_SLOT_STMT, contents)
 
     def __insert_power_plant_module(self, json_object):
         cursor = self.__database.cursor()
@@ -684,7 +715,10 @@ class TerraInvictaDatabaseManager:
     def __insert_missile_weapon_module(self, json_object):
         cursor = self.__database.cursor()
 
-        contents = { "_type" : "hull_weapon" } #all of them are hull weapons
+        contents = {
+            "_weapon_type": "missile",
+            "_type": "hull_weapon" #all of them are hull weapons
+        }
 
         #If not nuclear shaped charge, this value will not be present
         if json_object["warheadClass"] != "ShapedNuclear":
@@ -716,7 +750,10 @@ class TerraInvictaDatabaseManager:
         #Check nose or hull
         mount_type = self.__check_mount_type(json_object["mount"])
 
-        contents = {"_type" : mount_type }
+        contents = {
+            "_weapon_type": "laser",
+            "_type" : mount_type
+        }
         contents.update( json_object )
 
         self.__insert_base_weapon_module(contents, cursor)
@@ -729,7 +766,10 @@ class TerraInvictaDatabaseManager:
         #Check nose or hull
         mount_type = self.__check_mount_type(json_object["mount"])
 
-        contents = {"_type" : mount_type }
+        contents = {
+            "_weapon_type": "magnetic_gun",
+            "_type" : mount_type
+        }
 
         if not "salvo_shots" in json_object:
             contents["salvo_shots"] = None
@@ -748,7 +788,10 @@ class TerraInvictaDatabaseManager:
         #Check nose or hull
         mount_type = self.__check_mount_type(json_object["mount"])
 
-        contents = {"_type" : mount_type }
+        contents = {
+            "_weapon_type": "conventional_gun",
+            "_type" : mount_type
+        }
         contents.update( json_object )
 
         self.__insert_base_weapon_module(contents, cursor)
@@ -763,7 +806,10 @@ class TerraInvictaDatabaseManager:
         #Check nose or hull
         mount_type = self.__check_mount_type(json_object["mount"])
 
-        contents = {"_type" : mount_type }
+        contents = {
+            "_weapon_type": "plasma",
+            "_type" : mount_type
+        }
         contents.update( json_object )
 
         self.__insert_base_weapon_module(contents, cursor)
@@ -777,7 +823,10 @@ class TerraInvictaDatabaseManager:
         # Check nose or hull
         mount_type = self.__check_mount_type(json_object["mount"])
 
-        contents = {"_type": mount_type}
+        contents = {
+            "_weapon_type": "particle",
+            "_type": mount_type
+        }
         contents.update(json_object)
 
 
@@ -842,6 +891,11 @@ class TerraInvictaDatabaseManager:
             self.__logger.warning(f"IntegrityError encountered for module localization { contents["module"] }, continuing")
 
 
+        cursor.close()
+
+    def __insert_prereq_calculation(self, contents):
+        cursor = self.__database.cursor()
+        cursor.execute(self.__PREREQ_CALCULATION_STMT, contents)
         cursor.close()
 
     #Utility functions
@@ -948,6 +1002,24 @@ class TerraInvictaDatabaseManager:
         return self.__template_context[principle]["type"]
 
 
+    def __handle_single_tech_prereq_calculation(self, tech):
+        pr_cursor = self.__database.cursor()
+        results = prq.get_dependencies_for(tech, pr_cursor)
+
+        count = len(results) - 1
+
+        total = 0
+        for row in results:
+            total += row["cost"]
+
+        contents = {
+            "internalName": tech,
+            "dependencyCount": count,
+            "costSumTotal": total,
+        }
+        pr_cursor.close()
+
+        self.__insert_prereq_calculation(contents)
 
     def __load_localization_file(self, path, destination: dict):
         loc_file = open(path, "r", encoding="utf-8")
@@ -1184,6 +1256,44 @@ class TerraInvictaDatabaseManager:
                 else:
                     raise IOError(f"Error while closing database:", e)
 
+    def __calculate_prereqs(self, database_url):
+        try:
+            self.__database = sqlite3.connect(database_url)
+            self.__database.row_factory = sqlite3.Row
+        except sqlite3.Error as e:
+            raise IOError(f"Error while connecting to database: {e}", e)
+
+
+        #We do it for all techs
+        try:
+            cursor_techs = self.__database.cursor()
+            cursor_techs.execute(" PRAGMA foreign_keys = ON ")
+            cursor_techs.execute(" BEGIN TRANSACTION ")
+
+            cursor_techs.execute("SELECT internal_name from TITechEntries")
+
+            result = cursor_techs.fetchall()
+
+            for row in result:
+                self.__handle_single_tech_prereq_calculation(row["internal_name"])
+
+            cursor_techs.close()
+
+            self.__database.commit()
+
+        finally:
+            try:
+                self.__database.close()
+            except sqlite3.Error as e:
+                _eg, exception, _tb = sys.exc_info()
+                if exception is not None:
+                    nex = copy.copy(e)
+                    nex.__cause__ = exception
+
+                    raise IOError(f"Error while closing database:", nex)
+                else:
+                    raise IOError(f"Error while closing database:", e)
+
     #public interface
 
     def populate_db(self, database_url, path_list):
@@ -1195,8 +1305,8 @@ class TerraInvictaDatabaseManager:
     def localize_db(self, database_url, loc_path_list):
         self.__populate_localizations(database_url, loc_path_list)
 
-    def precalculate_dependency_costs(self):
-        pass
+    def precalculate_dependency_costs(self, database_url):
+        self.__calculate_prereqs(database_url)
 
 if __name__ == "__main__":
     dbhandler = TerraInvictaDatabaseManager()
@@ -1224,4 +1334,5 @@ if __name__ == "__main__":
 
 
     dbhandler.populate_db( "../test_database.db", json_path_list )
+    dbhandler.precalculate_dependency_costs("../test_database.db")
     dbhandler.localize_db( "../test_database.db", localization_path_list )

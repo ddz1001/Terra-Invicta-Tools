@@ -154,6 +154,17 @@ CREATE TABLE TIShipHulls (
    FOREIGN KEY (module_name) REFERENCES TIShipModules (module_name) ON DELETE CASCADE
 );
 
+CREATE TABLE TIShipHullModuleSlots (
+    module_name TEXT NOT NULL,
+    slot_number INTEGER NOT NULL,
+    slot_type TEXT NOT NULL,
+    x_coordinate INTEGER NOT NULL,
+    y_coordinate INTEGER NOT NULL,
+
+    PRIMARY KEY (module_name, slot_number),
+    FOREIGN KEY (module_name) REFERENCES TIShipHulls (module_name) ON DELETE CASCADE
+);
+
 CREATE TABLE TIArmor (
   module_name TEXT UNIQUE PRIMARY KEY,
   density INTEGER NOT NULL,
@@ -271,6 +282,7 @@ CREATE TABLE TIUtilityEffects (
 CREATE TABLE TIWeapons (
   module_name TEXT UNIQUE PRIMARY KEY,
   module_mass INTEGER NOT NULL,
+  weapon_type TEXT NOT NULL CHECK (weapon_type IN ('magnetic_gun', 'conventional_gun', 'missile', 'particle', 'laser', 'plasma')),
   mount_type TEXT NOT NULL,
   can_attack BOOLEAN NOT NULL,
   can_defend BOOLEAN NOT NULL,
@@ -446,11 +458,61 @@ CREATE TABLE TIDatabaseInfo (
     entry_value TEXT
 );
 
+
+--Views
+
+CREATE VIEW HabModuleMonthlyBalances AS
+    SELECT  Habs.*,
+            Incomes.money as 'money_income', Incomes.influence as 'influence_income', Incomes.ops as 'ops_income',
+            Incomes.research as 'research_income', Incomes.projects as 'projects_income',
+            Incomes.control_point_capacity as 'control_point_capacity_income', Incomes.antimatter as 'antimatter_income',
+            Expenses.money as 'money_expense', Expenses.boost as 'boost_expense', Expenses.water as 'water_expense',
+            Expenses.volatiles as 'volatiles_expense', Expenses.metals as 'metals_expense',
+            Expenses.nobleMetals as 'nobleMetals_expense', Expenses.fissiles as 'fissiles_expense',
+            Expenses.exotics as 'exotics_expense', Expenses.antimatter as 'antimatter_expense'
+
+    FROM TIHabModules Habs
+    JOIN TIHabModuleIncomes Incomes on Habs.module_name = Incomes.module_name
+    JOIN TIHabModuleExpenses Expenses on Habs.module_name = Expenses.module_name
+;
+
+CREATE VIEW DrivePropellants AS
+    SELECT  Drives.*,
+            Props.propellant,
+            Props.uses_helium3,
+            Props.water as 'water_per_fuel_unit',
+            Props.volatiles as 'volatiles_per_fuel_unit',
+            Props.metals as 'metals_per_fuel_unit',
+            Props.nobleMetals as 'nobleMetals_per_fuel_unit',
+            Props.fissiles as 'fissiles_per_fuel_unit',
+            Props.exotics as 'exotics_per_fuel_unit',
+            Props.antimatter as 'antimatter_per_fuel_unit'
+    FROM TIDrives Drives
+    JOIN TIDrivePropellant Props ON Drives.module_name = Props.module_name
+;
+
+CREATE VIEW FactionUniqueTechs AS
+    SELECT  Req.faction,
+            Tc.*
+    FROM TITechEntries Tc
+    JOIN TIFactionPrerequisites Req on Tc.internal_name = Req.internal_name
+;
+
+CREATE VIEW FactionUniqueModules AS
+        SELECT  Req.faction,
+            Mod.*
+    FROM TIModules Mod
+    JOIN TIFactionPrerequisites Req on Req.internal_name = Mod.required_project
+;
+
+
 INSERT INTO TIDatabaseInfo values('db_version', '0.1');
 INSERT INTO TIDatabaseInfo values('db_populated', 'false');
 INSERT INTO TIDatabaseInfo values('db_localized', 'false');
 
 --UPDATE TIDatabaseInfo set entry_value = 'true' where entry_name = 'db_populated';
+
+
 
 --Here is where we hardcode in our ship roles
 INSERT INTO TIShipRoles values ('SS_Interceptor', 'Interceptor');
