@@ -1,0 +1,83 @@
+<html lang="en">
+    <head>
+        <title>My Webpage</title>
+        <script src="/eel.js"></script>
+        <script>
+            window.onload = begin;
+
+            async function begin() {
+                const selector = document.getElementById("tables");
+                const field = document.getElementById("querySubmit");
+
+                selector.addEventListener("change", (evt) => {
+                    if (selector.value === "custom") {
+                        field.removeAttribute("disabled")
+                    } else {
+                        field.setAttribute("disabled", "true")
+                    }
+                    console.log("Selector")
+                });
+
+                let tableSet = await eel.getTables()();
+                console.log("adding " + tableSet);
+
+                for (const str of tableSet) {
+                    let elem = document.createElement("option");
+                    elem.innerText = str;
+                    elem.setAttribute("value", str);
+
+                    selector.appendChild( elem );
+                }
+            }
+
+            async function executeQuery() {
+                let selection = document.getElementById("tables").value;
+                let result = null;
+                if(selection === "custom") {
+                    let query = document.getElementById("querySubmit").value
+                    result = await eel.execute( query )
+
+                }
+                else {
+                    let table = selection;
+                    result = await eel.findForTable(table);
+                }
+
+                result( (body) => {
+                    document.getElementById("results").innerHTML = body;
+                } );
+            }
+
+        </script>
+        <style>
+              table {
+                border-collapse: collapse; /* Makes borders appear as a single line */
+                width: 100%;
+              }
+
+              th, td {
+                border: 1px solid black; /* Adds border between elements */
+                padding: 8px;
+                text-align: left;
+              }
+        </style>
+    </head>
+
+    <body>
+        <div>
+            <label for="tables">Select option</label>
+            <select id="tables">
+                <option value="custom">Custom</option>
+            </select>
+            <br>
+            <label for="querySubmit">Query</label>
+            <textarea id="querySubmit"></textarea>
+            <br>
+            <button onclick="executeQuery()">Submit</button>
+        </div>
+        <div>
+            <span>Results:</span>
+            <div id="results"></div>
+        </div>
+    </body>
+</html>

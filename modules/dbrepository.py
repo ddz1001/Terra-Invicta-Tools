@@ -63,6 +63,9 @@ class TerraInvictaDatabaseRepository:
         except sqlite3.Error as e:
             raise IOError(f"Error while connecting to database: {e}", e)
 
+    def module_tables(self):
+        return self.__MODULE_TABLES.copy()
+
 
     def get_module_tech_traits(self, table, condition=None, order_by=None, group_by=None, retention="include", columns=None) -> list[dict]:
         if condition is None:
