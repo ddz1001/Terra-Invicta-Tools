@@ -46,7 +46,22 @@ class TerraInvictaDatabaseRepository:
         JOIN TIModules tm ON pc.module_name = tm.module_name
         JOIN TITechEntries tech ON tm.required_project = tech.internal_name
         JOIN PrecalculatedPrerequisiteCosts calc ON calc.internal_name = tech.internal_name
-        
+    """
+
+    __GENERAL_MODULE_MATERIAL_STMT = """
+            SELECT
+            tm.friendly_name,
+            pc.*,
+            mt.water,
+            mt.volatiles,
+            mt.metals,
+            mt.nobleMetals,
+            mt.fissiles,
+            mt.exotics,
+            mt.antimatter
+        FROM $$principle$$ pc
+        JOIN TIModules tm ON pc.module_name = tm.module_name
+        JOIN TIModuleMaterials mt on tm.module_name = mt.module_name    
     """
 
     __MODULE_TABLES = {
@@ -66,8 +81,7 @@ class TerraInvictaDatabaseRepository:
     def module_tables(self):
         return self.__MODULE_TABLES.copy()
 
-
-    def get_module_tech_traits(self, table, condition=None, order_by=None, group_by=None, retention="include", columns=None) -> list[dict]:
+    def __base_get(self, principle_query, condition=None, order_by=None, group_by=None, retention="include", columns=None):
         if condition is None:
             condition = ""
         else:
@@ -81,16 +95,14 @@ class TerraInvictaDatabaseRepository:
         else:
             group_by = " GROUP BY " + group_by
 
-        if table not in self.__MODULE_TABLES:
-            raise ValueError(f"Table {table} not recognized, the following tables are supported {self.__MODULE_TABLES}")
 
         cursor = self.__database.cursor()
 
-        query = self.__GENERAL_MODULE_TECH_STMT.replace("$$principle$$", table)
-        query += condition + " " + group_by + " " + order_by + "; "
+        principle_query += condition + " " + group_by + " " + order_by + "; "
 
-        result = cursor.execute(query).fetchall()
+        result = cursor.execute(principle_query).fetchall()
 
+        ret = []
         if len(result) > 0:
             trf = transform_result_set(result)
             #We prune out the unwanted columns at the end
@@ -100,15 +112,29 @@ class TerraInvictaDatabaseRepository:
                         remove_all( columns, entry )
                     elif retention == "include":
                         retain_all( columns, entry )
-            return trf
-        else:
-            return []
+            ret = trf
+
+        cursor.close()
+        return ret
 
 
+    def get_module_tech_traits(self, table, condition=None, order_by=None, group_by=None, retention="include", columns=None) -> list[dict]:
+        if table not in self.__MODULE_TABLES:
+            raise ValueError(f"Table {table} not recognized, the following tables are supported {self.__MODULE_TABLES}")
+
+        query = self.__GENERAL_MODULE_TECH_STMT.replace("$$principle$$", table)
+        return self.__base_get(query, condition, order_by, group_by, retention, columns)
+
+    def get_module_material_traits(self, table, condition=None, order_by=None, group_by=None, retention="include", columns=None) -> list[dict]:
+        if table not in self.__MODULE_TABLES:
+            raise ValueError(f"Table {table} not recognized, the following tables are supported {self.__MODULE_TABLES}")
+
+        query = self.__GENERAL_MODULE_MATERIAL_STMT.replace("$$principle$$", table)
+        return self.__base_get(query, condition, order_by, group_by, retention, columns)
 
 
 if __name__ == "__main__":
     repository = TerraInvictaDatabaseRepository('../test_database.db')
 
-    stuff = repository.get_module_tech_traits("FactionUniqueModules", condition="pc.faction not like 'AlienCouncil'")
+    stuff = repository.get_module_material_traits("FactionUniqueModules", condition="pc.faction not like 'AlienCouncil'")
     print( formatutil.to_csv(stuff) )
