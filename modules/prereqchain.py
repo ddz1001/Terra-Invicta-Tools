@@ -9,7 +9,7 @@
 
 import sqlite3
 
-def get_dependencies_for(technology, db_cursor):
+def get_cost_ordered_dependencies_for(technology, db_cursor):
 
     query = """
         WITH RECURSIVE DependencyChain AS (
@@ -41,3 +41,33 @@ def get_dependencies_for(technology, db_cursor):
 
     db_cursor.execute(query, {"start_name": technology})
     return db_cursor.fetchall()
+
+def get_dependencies_for(technology, db_cursor):
+    query = """
+        WITH RECURSIVE DependencyChain AS (
+            SELECT
+                internal_name,
+                requires
+            FROM TIPrerequisites
+            WHERE internal_name = :start_name
+
+            UNION ALL
+
+            SELECT
+                tp.internal_name,
+                tp.requires
+            FROM TIPrerequisites tp
+            INNER JOIN DependencyChain dc
+                ON tp.internal_name = dc.requires
+        )
+        SELECT * from (SELECT TITechEntries.internal_name, TITechEntries.cost from TITechEntries
+        WHERE internal_name = :start_name)
+        UNION ALL
+        SELECT * from (SELECT DISTINCT DependencyChain.requires as internal_name, TITechEntries.cost from DependencyChain
+        LEFT JOIN TITechEntries on DependencyChain.requires = TITechEntries.internal_name);
+    """
+
+    #This exceedingly complex query is quite similar to the one above, only it returns the data as processed, and no sorting occurs
+    db_cursor.execute(query, {"start_name": technology})
+    return db_cursor.fetchall()
+

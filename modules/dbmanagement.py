@@ -14,7 +14,7 @@ import json
 import sys
 import logging
 import re
-import prereqchain as prq
+import modules.prereqchain as prq
 
 class TerraInvictaDatabaseManager:
     __TECH_ENTRY_STMT = """ 
@@ -1013,7 +1013,7 @@ class TerraInvictaDatabaseManager:
 
     def __handle_single_tech_prereq_calculation(self, tech):
         pr_cursor = self.__database.cursor()
-        results = prq.get_dependencies_for(tech, pr_cursor)
+        results = prq.get_cost_ordered_dependencies_for(tech, pr_cursor)
 
         count = len(results) - 1
 
@@ -1110,6 +1110,9 @@ class TerraInvictaDatabaseManager:
 
             for path in localization_path_list:
                 self.__populate_localization_single(path)
+
+            #Reflect status in DatabaseInfo
+            self.__database.execute("UPDATE TIDatabaseInfo set entry_value = 'true' where entry_name = 'db_localized';")
 
             self.__database.commit()
         except sqlite3.Error as e:
@@ -1317,6 +1320,7 @@ class TerraInvictaDatabaseManager:
     def precalculate_dependency_costs(self, database_url):
         self.__calculate_prereqs(database_url)
 
+#Test driver
 if __name__ == "__main__":
     dbhandler = TerraInvictaDatabaseManager()
 

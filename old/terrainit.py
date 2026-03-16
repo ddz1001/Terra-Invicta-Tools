@@ -14,7 +14,7 @@ import sqlite3
 import sys
 
 version = "0.1"
-default_search_path="./tidb.sql"
+default_search_path= "../tidb.sql"
 
 class ProgramState:
     pass

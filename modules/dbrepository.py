@@ -8,7 +8,7 @@
 
 
 import sqlite3
-import formatutil
+import modules.formatutil as formatutil
 
 
 def transform_result_set(result_set) -> list[dict]:
@@ -70,6 +70,18 @@ class TerraInvictaDatabaseRepository:
         FROM $$principle$$ pc
         JOIN TIModules tm ON pc.module_name = tm.module_name
         JOIN TIModuleMaterials mt on tm.module_name = mt.module_name    
+    """
+
+    __DB_VERSION_STMT = """
+        SELECT entry_value FROM main.TIDatabaseInfo WHERE entry_name = 'db_version';
+    """
+
+    __DB_POPULATED_STMT = """
+        SELECT entry_value FROM main.TIDatabaseInfo WHERE entry_name = 'db_populated';
+    """
+
+    __DB_LOCALIZED_STMT = """
+        SELECT entry_value FROM main.TIDatabaseInfo WHERE entry_name = 'db_localized';
     """
 
     __MODULE_TABLES = {
@@ -140,7 +152,27 @@ class TerraInvictaDatabaseRepository:
         query = self.__GENERAL_MODULE_MATERIAL_STMT.replace("$$principle$$", table)
         return self.__base_get(query, condition, order_by, group_by, retention, columns)
 
+    def get_db_version(self):
+        query = self.__DB_VERSION_STMT
+        return self.__database.execute(query).fetchone()[0]
 
+    def get_db_populated(self):
+        query = self.__DB_POPULATED_STMT
+        val = self.__database.execute(query).fetchone()[0]
+        return val == "true"
+
+    def get_db_localized(self):
+        query = self.__DB_LOCALIZED_STMT
+        val = self.__database.execute(query).fetchone()[0]
+        return val == "true"
+
+    def close(self):
+        self.__database.close()
+
+    def __del__(self):
+        self.close()
+
+#Test driver
 if __name__ == "__main__":
     repository = TerraInvictaDatabaseRepository('../test_database.db')
 
