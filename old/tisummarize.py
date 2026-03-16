@@ -45,7 +45,7 @@ def list_dependencies(tech, database):
 
 if __name__ == '__main__':
 
-    database = sqlite3.connect('test_database.db')
+    database = sqlite3.connect('../test_database.db')
     database.row_factory = sqlite3.Row
 
     project = "Accelerando"
