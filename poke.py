@@ -212,7 +212,7 @@ def do_show_project_techs(database):
     cursor.close()
     return rval
 
-def do_show_dependencies(database, technology):
+def do_list_dependencies(database, technology):
     cursor = database.cursor()
     resultset = prqc.get_dependencies_for( technology, cursor )
     transposed = transpose_resultset(resultset)
@@ -375,7 +375,7 @@ def list_globals(argns: argparse.Namespace):
 
     print(outstr)
 
-def list_dependencies(argns: argparse.Namespace):
+def show_dependencies(argns: argparse.Namespace):
     database = sqlite3.connect(argns.database)
     database.row_factory = sqlite3.Row
 
@@ -383,7 +383,7 @@ def list_dependencies(argns: argparse.Namespace):
     if argns.ordered:
         result = do_show_ordered_dependencies(database, argns.technology_name)
     else:
-        result = do_show_dependencies(database, argns.technology_name)
+        result = do_list_dependencies(database, argns.technology_name)
 
     if argns.truncate:
         del result["cost"] #our only other column
@@ -459,7 +459,7 @@ def program():
     parser_list_modules.add_argument("-j", "--json", default=False, action="store_true", help="Format output as JSON")
     parser_list_modules.set_defaults(func=list_modules)
 
-    parser_list_projects = sub.add_parser('list-projects', help="List module names")
+    parser_list_projects = sub.add_parser('list-projects', help="List all projects")
     parser_list_projects.add_argument("database", default=None, type=str,action="store", help="Database to inspect")
     parser_list_projects.add_argument("-c", "--csv", default=False, action="store_true", help="Format output as CSV")
     parser_list_projects.add_argument("-j", "--json", default=False, action="store_true", help="Format output as JSON")
@@ -467,7 +467,7 @@ def program():
     parser_list_projects.add_argument("-r", "--research", default=False, action="store_true", help="Truncate to just the project name and research cost")
     parser_list_projects.set_defaults(func=list_projects)
 
-    parser_list_globals = sub.add_parser('list-global-techs', help="List module names")
+    parser_list_globals = sub.add_parser('list-global-techs', help="List all global technologies")
     parser_list_globals.add_argument("database", default=None, type=str,action="store", help="Database to inspect")
     parser_list_globals.add_argument("-c", "--csv", default=False, action="store_true", help="Format output as CSV")
     parser_list_globals.add_argument("-j", "--json", default=False, action="store_true", help="Format output as JSON")
@@ -482,14 +482,14 @@ def program():
     parser_show_module.add_argument("-j", "--json", default=False, action="store_true", help="Format output as JSON")
     parser_show_module.set_defaults(func=show_module_information)
 
-    parser_list_tech_dependencies = sub.add_parser('list-dependencies', help="Show dependencies for any tech or project")
+    parser_list_tech_dependencies = sub.add_parser('show-dependencies', help="Show dependencies for any tech or project")
     parser_list_tech_dependencies.add_argument("database", default=None, type=str,action="store", help="Database to inspect")
     parser_list_tech_dependencies.add_argument("technology_name", default=None, type=str,action="store", help="Technology name")
     parser_list_tech_dependencies.add_argument("-c", "--csv", default=False, action="store_true", help="Format output as CSV")
     parser_list_tech_dependencies.add_argument("-j", "--json", default=False, action="store_true", help="Format output as JSON")
     parser_list_tech_dependencies.add_argument("-o", "--ordered", default=False, action="store_true", help="Return result ordered by cost")
     parser_list_tech_dependencies.add_argument("-t", "--truncate", default=False, action="store_true", help="Truncate to just the tech names")
-    parser_list_tech_dependencies.set_defaults(func=list_dependencies)
+    parser_list_tech_dependencies.set_defaults(func=show_dependencies)
 
     parser_show_tech_total_cost = sub.add_parser('show-tech-cost', help="Show total cost breakdown for given technology")
     parser_show_tech_total_cost.add_argument("database", default=None, type=str,action="store", help="Database to inspect")

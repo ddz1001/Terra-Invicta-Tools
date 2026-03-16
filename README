@@ -1,0 +1,43 @@
+Terra Invicta Tools
+
+A series of Python scripts for decoding and analyzing the data files from Pavonis Interactive's hybrid strategy game,
+"Terra Invicta"
+
+This project was originally started as a way for me to quickly calculate the total cost for the large number of
+researchable in-game technologies. It rapidly expanded to cover most of the modules, projects, and various other
+in-game concepts.
+
+The various data files packaged with the game are scattered and rather hard to navigate just through regular
+text editors. So these scripts read and pack the data into easily queried relational records. This allows a wide
+array of operations to be performed on the data.
+
+
+Demonstrating these scripts:
+    - First, ensure that the latest version of Python 3 is installed on your machine, and the binary present in the users PATH
+      This will allow you to run the commands with "./command.py" instead of having to do "python3 command.py"
+
+    - Run "init.py" command found at the top-level, this will initialize the database.
+      Make sure it follows: './init.py tidb.sql' to initialize with the provided schema.
+      This will create a file called "dbout.db", which is the default name for our database file.
+
+    - Once the database is successfully initialized,run the "load.py" command, this will load the data into the database
+      Use the following: './load.py dbout.db testfiles', this will load the .json files under "testfiles" into the database
+
+    - Once the database has been fully loaded, you may now run the "poke.py" command to perform various operations on the data.
+      "poke.py" has a number of subcommands.
+      The "list" commands follow the form: "./poke.py list-X [database-file]"
+      the "show" commands follow the form: "./poke.py show-X [database-file] [identifier]"
+
+    Examples of this command:
+
+        - './poke.py list-modules dbout.db' shows all of the modules in the database
+        - './poke.py show-module dbout.db MODULE_NAME' shows the details of a given module
+        - './poke.py show-module --csv dbout.db MODULE_NAME' shows the details formatted as CSV
+        - './poke.py show-module --json dbout.db MODULE_NAME' shows the details formatted as JSON
+        - './poke.py list-projects dbout.db' list all of the projects in the database
+        - './poke.py list-projects --truncate dbout.db' list all of the projects in the database, truncating to just the name
+        - './poke.py show-tech dbout.db TECH_OR_PROJECT' list the details of a given technology or project
+        - './poke.py show-dependencies dbout.db TECH_OR_PROJECT' list all dependencies for a given technology or project
+        - './poke.py show-tech-cost dbout.db TECH_OR_PROJECT' show the total cost of a technology or project, factoring in all dependencies
+
+    I would recommend looking at the 'show-dependencies' subcommand, as it was the original purpose of this project
