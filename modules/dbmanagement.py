@@ -884,7 +884,7 @@ class TerraInvictaDatabaseManager:
         try:
             cursor.execute(self.__LOCALIZATION_TECHS_STMT, contents)
         except sqlite3.IntegrityError as e:
-            self.__logger.warning(f"IntegrityError encountered for tech localization { contents["internal"] }, continuing")
+            self.__logger.warning(f"IntegrityError encountered for tech localization { contents['internal'] }, continuing")
 
         cursor.close()
 
@@ -897,7 +897,7 @@ class TerraInvictaDatabaseManager:
         try:
             cursor.execute(self.__LOCALIZATION_MODULES_STMT, contents)
         except sqlite3.IntegrityError as e:
-            self.__logger.warning(f"IntegrityError encountered for module localization { contents["module"] }, continuing")
+            self.__logger.warning(f"IntegrityError encountered for module localization { contents['module'] }, continuing")
 
 
         cursor.close()
